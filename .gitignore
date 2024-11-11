@@ -1,0 +1,12 @@
+circomlib/
+*_cpp/
+*_js/
+*.sym
+*.r1cs
+*.wasm
+venv/
+ecdsa/
+*.json
+*.wtns
+*.ptau
+*.zkey
