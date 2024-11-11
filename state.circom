@@ -294,7 +294,7 @@ template IPStringToBits() {
 // Create a state with a given number of IP addresses
 //  This state will be hashed and signed to ensure integrity and prevent tampering
 template CreateState(num_ips) {
-    signal input ipStrings[num_ips][15];  // Changed from 39 to 15
+    signal input ipStrings[num_ips][15];
     signal input nonce;
     
     signal output ipStringsOut[num_ips][15];
@@ -365,9 +365,9 @@ template CreateState(num_ips) {
 // Propose a new state update
 template ProposeStateUpdate(num_ips) {
     // Input signals
-    signal input initialState_ipStrings[num_ips][15];  // Changed from 39 to 15
+    signal input initialState_ipStrings[num_ips][15];
     signal input initialState_nonce;
-    signal input new_ip[15];  // Changed from 39 to 15
+    signal input new_ip[15];
     
     // Output signals
     signal output newState_ipStrings[num_ips][15];
@@ -375,6 +375,8 @@ template ProposeStateUpdate(num_ips) {
     signal output stateHash[256];
     signal output sig_r;
     signal output sig_s_inv;
+
+    signal exists_binary;
 
     // Pre-declare components
     component isZero[num_ips];
@@ -393,24 +395,27 @@ template ProposeStateUpdate(num_ips) {
             ipEqual[j].in[0][k] <== initialState_ipStrings[j][k];
             ipEqual[j].in[1][k] <== new_ip[k];
         }
-        exists = exists + ipEqual[j].out;
+        exists = exists | ipEqual[j].out;
     }
+
+    // Move exists_binary assignment outside the loops
+    exists_binary <-- exists > 0 ? 1 : 0;
+    exists_binary * (exists_binary - 1) === 0;
 
     // Process IP updates
     for (var i = 0; i < num_ips; i++) {
         isZero[i].in <== initialState_ipStrings[i][0];
         
-        // First mux selects between new_ip and current IP based on isZero
-        // Second mux selects between first mux output and shifted value
         for (var j = 0; j < 15; j++) {
             mux1[i][j] = Mux1();
             mux2[i][j] = Mux1();
             
+            // Ensure control signals are binary
             mux1[i][j].c <== isZero[i].out;
             mux1[i][j].a <== new_ip[j];
             mux1[i][j].b <== initialState_ipStrings[i][j];
             
-            mux2[i][j].c <== exists;
+            mux2[i][j].c <== exists_binary;
             mux2[i][j].a <== i < num_ips-1 ? initialState_ipStrings[i+1][j] : new_ip[j];
             mux2[i][j].b <== mux1[i][j].out;
             newState_ipStrings[i][j] <== mux2[i][j].out;
@@ -473,9 +478,9 @@ template CheckValidStateUpdate() {
 
 template AttemptStateUpdate(num_ips) {
     // Public inputs
-    signal input ipStrings[num_ips][15];  // Changed from 39 to 15
+    signal input ipStrings[num_ips][15];
     signal input nonce;
-    signal input new_ip[15];  // Changed from 39 to 15
+    signal input new_ip[15];
     signal input is_challenge_response;
 
     // Outputs
@@ -534,4 +539,4 @@ template AttemptStateUpdate(num_ips) {
     challenge_failed <== 1 - selector;
 }
 
-component main { public [ ipStrings, nonce, new_ip, is_challenge_response ]} = AttemptStateUpdate(5);
+component main { public [ is_challenge_response ]} = AttemptStateUpdate(5);

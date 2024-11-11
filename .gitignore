@@ -6,7 +6,13 @@ circomlib/
 *.wasm
 venv/
 ecdsa/
-*.json
+proofs/
+publics/
+witnesses/
+input.json
+verification_key.json
+proof.json
+public.json
 *.wtns
 *.ptau
 *.zkey
