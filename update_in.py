@@ -41,7 +41,7 @@ def update_ip_strings(old_ips, new_ip, ip_exists):
 
 def format_and_pad_ip(ip):
 	# Pad IPv4 to 15 characters (xxx.xxx.xxx.xxx)
-	return [ord(c) for c in ip.ljust(15, '0')]
+	return [ord(c) for c in ip.rjust(15, '0')]
 
 if not old_in:
 	print("No existing input found, creating new input")

@@ -7,6 +7,7 @@ include "circomlib/circuits/pedersen.circom";
 
 // PRIVATE KEY = 17043596940825480372850145379760378381660468692634776084163635977000967496844
 
+// ============== MATHEMATICAL FUNCTIONS =================
 //Multiply (a*b mod m)
 function mod_mult(a, b, m) {
 	var res = 0;
@@ -59,44 +60,6 @@ function mult_point(x, y, r){
 	return point;
 }
 
-//Find min of a and b
-function min(a, b) {
-	return a * (a <= b) + b * (b < a);
-}
-
-template Verify() {
-    signal input hashed_msg;
-    signal input r;
-    signal input s_inv;
-    signal output out;
-
-    var Ln = 251;
-    var n = 2736030358979909402780800718157159386076813972158567259200215660948447373041;
-    
-    var G[2];
-    var pub[2];
-
-    pub[0] = 5299619240641551281634865583518297030282874472190772894086521144482721001553;
-    pub[1] = 16950150798460657717958625567821834550301663161624707787222815936182638968203;
-
-    G[0] = 5299619240641551281634865583518297030282874472190772894086521144482721001553;
-    G[1] = 16950150798460657717958625567821834550301663161624707787222815936182638968203;
-
-    var z = hashed_msg >> 6;
-    var u1 = mod_mult(z, s_inv, n);
-    var u2 = mod_mult(r, s_inv, n);
-
-    var p1[2] = mult_point(G[0], G[1], u1);
-    var p2[2] = mult_point(pub[0], pub[1], u2);
-    var point[2] = add_point(p1[0], p1[1], p2[0], p2[1]);
-
-    // Use witness computation for the verification result
-    out <-- (point[0] % n == r % n) ? 1 : 0;
-    
-    // Add constraint to ensure out is binary
-    out * (out - 1) === 0;
-}
-
 //Modular exponentiation (a^b mod m)
 function pow_mod(a, b, m) {
     var res = 1;
@@ -112,7 +75,58 @@ function pow_mod(a, b, m) {
     return res;
 }
 
-//Sign a message using ECDSA
+// ============== LOGICAL CIRCUIT COMPONENTS =================
+// Arbitrary length MultiAND component
+template MultiAND(n) {
+    signal input in[n];
+    signal output out;
+
+    signal temp[n];
+    temp[0] <== in[0];
+
+    for (var i = 1; i < n; i++) {
+        temp[i] <== temp[i-1] * in[i];
+    }
+
+    out <== temp[n-1];
+}
+
+// Arbitrary length MultiEqual component
+template MultiEqual(n) {
+    signal input in[2][n];
+    signal output out;
+
+    signal temp[n];
+    
+    for (var i = 0; i < n; i++) {
+        temp[i] <-- in[0][i] == in[1][i] ? 1 : 0;
+        temp[i] * (temp[i] - 1) === 0;
+    }
+    component and = MultiAND(n);
+    and.in <== temp;
+    out <== and.out;
+}
+
+// 1-bit Mux component
+template Mux1() {
+    signal input c;  // Control signal
+    signal input a;  // Input signal when c is 1
+    signal input b;  // Input signal when c is 0
+    signal output out;
+
+    // Ensure c is binary (0 or 1)
+    c * (c - 1) === 0;
+
+    // Intermediate signal for the product
+    signal t;
+    t <== c * (a - b);
+
+    // Constraint for multiplexing
+    out <== b + t;
+}
+
+// ============== ECDSA SIGNATURE FUNCTIONS =================
+// Sign a message using ECDSA
 function Sign(hashed_msg) {
     var Ln = 251;
     var n = 2736030358979909402780800718157159386076813972158567259200215660948447373041;
@@ -148,115 +162,42 @@ function Sign(hashed_msg) {
     return [r, s_inv];
 }
 
-//Multiply point by a scalar in BabyJubJub template
-template BabyMult(N) {
-    signal input r, xin, yin;
-    signal output out[2];
-
-    component rBits = Num2Bits(N);
-    rBits.in <== r;
-
-    component powers[N];
-
-    powers[0] = BabyAdd();
-    powers[0].x1 <== xin;
-    powers[0].y1 <== yin;
-    powers[0].x2 <== 0;
-    powers[0].y2 <== 1;
-
-    for (var i = 1; i < N; i++) {
-        powers[i] = BabyAdd();
-        powers[i].x1 <== powers[i-1].xout;
-        powers[i].y1 <== powers[i-1].yout;
-        powers[i].x2 <== powers[i-1].xout;
-        powers[i].y2 <== powers[i-1].yout;
-    }
-
-    signal arr[2*N];
-    component adding[N-1];
-
-    arr[0] <== powers[0].xout * rBits.out[0];
-    arr[1] <== powers[0].yout * rBits.out[0] + 1 - rBits.out[0];
-
-
-    for (var i = 2; i < 2*N; i += 2) {
-        adding[i\2-1] = BabyAdd();
-        adding[i\2-1].x1 <== arr[i-2];
-        adding[i\2-1].y1 <== arr[i-1];
-
-        adding[i\2-1].x2 <== powers[i\2].xout * rBits.out[i\2];
-        adding[i\2-1].y2 <== powers[i\2].yout * rBits.out[i\2] + 1 - rBits.out[i\2];
-
-        arr[i] <== adding[i\2-1].xout;
-        arr[i+1] <== adding[i\2-1].yout;
-    }
-
-    out[0] <== arr[2*N-2];
-    out[1] <== arr[2*N-1];
-}
-
-// MultiOR component
-template MultiOR(n) {
-    signal input in[n];
+// Verify an ECDSA signature
+template Verify() {
+    signal input hashed_msg;
+    signal input r;
+    signal input s_inv;
     signal output out;
 
-    signal temp[n];
-    temp[0] <== in[0];
-
-    for (var i = 1; i < n; i++) {
-        temp[i] <== temp[i-1] + in[i] - temp[i-1] * in[i];
-    }
-
-    out <== temp[n-1];
-}
-
-// MultiAND component (as defined earlier)
-template MultiAND(n) {
-    signal input in[n];
-    signal output out;
-
-    signal temp[n];
-    temp[0] <== in[0];
-
-    for (var i = 1; i < n; i++) {
-        temp[i] <== temp[i-1] * in[i];
-    }
-
-    out <== temp[n-1];
-}
-
-// IsEqual component for arbitrary length
-template MultiEqual(n) {
-    signal input in[2][n];
-    signal output out;
-
-    signal temp[n];
+    var Ln = 251;
+    var n = 2736030358979909402780800718157159386076813972158567259200215660948447373041;
     
-    for (var i = 0; i < n; i++) {
-        temp[i] <-- in[0][i] == in[1][i] ? 1 : 0;
-        temp[i] * (temp[i] - 1) === 0;
-    }
-    component and = MultiAND(n);
-    and.in <== temp;
-    out <== and.out;
+    var G[2];
+    var pub[2];
+
+    pub[0] = 5299619240641551281634865583518297030282874472190772894086521144482721001553;
+    pub[1] = 16950150798460657717958625567821834550301663161624707787222815936182638968203;
+
+    G[0] = 5299619240641551281634865583518297030282874472190772894086521144482721001553;
+    G[1] = 16950150798460657717958625567821834550301663161624707787222815936182638968203;
+
+    var z = hashed_msg >> 6;
+    var u1 = mod_mult(z, s_inv, n);
+    var u2 = mod_mult(r, s_inv, n);
+
+    var p1[2] = mult_point(G[0], G[1], u1);
+    var p2[2] = mult_point(pub[0], pub[1], u2);
+    var point[2] = add_point(p1[0], p1[1], p2[0], p2[1]);
+
+    // Use witness computation for the verification result
+    out <-- (point[0] % n == r % n) ? 1 : 0;
+    
+    // Add constraint to ensure out is binary
+    out * (out - 1) === 0;
 }
 
-template Mux1() {
-    signal input c;  // Control signal
-    signal input a;  // Input signal when c is 1
-    signal input b;  // Input signal when c is 0
-    signal output out;
-
-    // Ensure c is binary (0 or 1)
-    c * (c - 1) === 0;
-
-    // Intermediate signal for the product
-    signal t;
-    t <== c * (a - b);
-
-    // Constraint for multiplexing
-    out <== b + t;
-}
+// ============== IP ADDRESS PARSING FUNCTIONS =================
+// Note: this takes in IP addresses as a list of lists of character ordinals
 
 // Convert hexadecimal string to number
 template HexToNumber(maxDigits) {
@@ -281,25 +222,41 @@ template IPv4StringToNumbers() {
     signal input ipString[15];  // Max length for IPv4 (xxx.xxx.xxx.xxx)
     signal output ipNumbers[4];
 
-    component stringToNum[4];
-    component mux[4][3];
-    var startIndex = 0;
-    for (var i = 0; i < 4; i++) {
-        stringToNum[i] = HexToNumber(3);
-        for (var j = 0; j < 3; j++) {
-            mux[i][j] = Mux1();
-            mux[i][j].c <-- (startIndex + j < 15) && (ipString[startIndex + j] != 46);
-            mux[i][j].a <== ipString[startIndex + j];
-            mux[i][j].b <== 0;
-            stringToNum[i].inString[j] <== mux[i][j].out;
+    var currentNum = 0;
+    var currentOctet = 0;
+    var nums[4];  // Temporary array to store computed values
+    var foundStart = 0;
+    
+    // Process each character
+    for (var i = 0; i < 15; i++) {
+        if (ipString[i] == 46) { // Period character
+            nums[currentOctet] = currentNum;
+            currentNum = 0;
+            currentOctet++;
+            foundStart = 1;
+        } else if (ipString[i] >= 49 && ipString[i] <= 57) { // Digits 1-9
+            currentNum = currentNum * 10 + (ipString[i] - 48);
+            foundStart = 1;
+        } else if (ipString[i] == 48) { // Handle 0
+            if (foundStart == 1) { // Only process 0 if we've found start
+                currentNum = currentNum * 10;
+            }
         }
-        ipNumbers[i] <== stringToNum[i].out;
         
-        startIndex += 4;
+        // Handle last octet
+        if (i == 14) {
+            nums[currentOctet] = currentNum;
+        }
+    }
+
+    // Assign all numbers at once
+    for (var i = 0; i < 4; i++) {
+        ipNumbers[i] <-- nums[i];
     }
 
     // Ensure each number is within valid range (0-255)
     for (var i = 0; i < 4; i++) {
+        // log(ipNumbers[i]);
         assert(ipNumbers[i] >= 0 && ipNumbers[i] <= 255);
     }
 }
@@ -332,6 +289,10 @@ template IPStringToBits() {
     ipBits <== ipv4ToBits.ipBits;
 }
 
+// ============== STATE MANAGEMENT FUNCTIONS =================
+
+// Create a state with a given number of IP addresses
+//  This state will be hashed and signed to ensure integrity and prevent tampering
 template CreateState(num_ips) {
     signal input ipStrings[num_ips][15];  // Changed from 39 to 15
     signal input nonce;
@@ -401,6 +362,7 @@ template CreateState(num_ips) {
     isEqual.in[1] <== 1;
 }
 
+// Propose a new state update
 template ProposeStateUpdate(num_ips) {
     // Input signals
     signal input initialState_ipStrings[num_ips][15];  // Changed from 39 to 15
