@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 if [ -z "$1" ]; then
     echo "Error: No public path specified"
     echo "Usage: $0 <public_path> <proof_path>"

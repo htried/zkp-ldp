@@ -4,8 +4,9 @@ This is a proof of concept for using zk proofs to verify ip addresses in private
 
 ## Setup
 
-1. Install the circom library: `npm install -g circom`
+1. Install the circom library: `npm install -g circom` (if you're on MacBook you may have to follow [these instructions](https://docs.circom.io/getting-started/installation/#installing-circom)).
 2. Install the snarkjs library: `npm install -g snarkjs`
+3. cd to the zk_cred_logic directory and run `git clone https://github.com/iden3/circomlib.git` to get the circom standard library installed.
 
 ## Running the code
 
@@ -16,8 +17,8 @@ If you're running this for one input state, do the following:
 
 3. Generate / update an input file: `python3 update_in.py` (then follow the prompts in the terminal)
 4. Compute one witness file: `./shell/03_compute_one_witness.sh state input.json <output_witness_path>`
-5. Generate one proof given the witness: `./shell/05_generate_one_proof.sh state <witness_path> <output_proof_path> <output_public_path>`
-6. Verify the proof: `./shell/06_verify_one_proof.sh <public_path> <proof_path>`
+5. Generate one proof given the witness: `./shell/04_generate_one_proof.sh state <witness_path> <output_proof_path> <output_public_path>`
+6. Verify the proof: `./shell/05_verify_one_proof.sh <public_path> <proof_path>`
 7. For each IP address state update, re-run steps 3 through 6.
 
 If you want to run the test suite, do the following:
