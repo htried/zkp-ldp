@@ -1,6 +1,8 @@
 pragma circom 2.2.0;
 
 include "circomlib/circuits/bitify.circom";
+include "circomlib/circuits/comparators.circom";
+include "circomlib/circuits/gates.circom";
 include "circomlib/circuits/sha256/sha256.circom";
 include "circomlib/circuits/babyjub.circom";
 include "circomlib/circuits/pedersen.circom";
@@ -76,31 +78,19 @@ function pow_mod(a, b, m) {
 }
 
 // ============== LOGICAL CIRCUIT COMPONENTS =================
-// Arbitrary length MultiAND component
-template MultiAND(n) {
-    signal input in[n];
-    signal output out;
-
-    signal temp[n];
-    temp[0] <== in[0];
-
-    for (var i = 1; i < n; i++) {
-        temp[i] <== temp[i-1] * in[i];
-    }
-
-    out <== temp[n-1];
-}
-
 // Arbitrary length MultiEqual component
 template MultiEqual(n) {
     signal input in[2][n];
     signal output out;
 
+    component equalityChecks[n];
     signal temp[n];
     
     for (var i = 0; i < n; i++) {
-        temp[i] <-- in[0][i] == in[1][i] ? 1 : 0;
-        temp[i] * (temp[i] - 1) === 0;
+        equalityChecks[i] = IsEqual();
+        equalityChecks[i].in[0] <== in[0][i];
+        equalityChecks[i].in[1] <== in[1][i];
+        temp[i] <== equalityChecks[i].out;
     }
     component and = MultiAND(n);
     and.in <== temp;
@@ -197,26 +187,6 @@ template Verify() {
 }
 
 // ============== IP ADDRESS PARSING FUNCTIONS =================
-// Note: this takes in IP addresses as a list of lists of character ordinals
-
-// Convert hexadecimal string to number
-template HexToNumber(maxDigits) {
-    signal input inString[maxDigits];
-    signal output out;
-
-    var number = 0;
-    for (var i = 0; i < maxDigits; i++) {
-        if (inString[i] >= 48 && inString[i] <= 57) { // 0-9
-            number = number * 16 + (inString[i] - 48);
-        } else if (inString[i] >= 65 && inString[i] <= 70) { // A-F
-            number = number * 16 + (inString[i] - 55);
-        } else if (inString[i] >= 97 && inString[i] <= 102) { // a-f
-            number = number * 16 + (inString[i] - 87);
-        }
-    }
-    out <-- number;
-}
-
 // Convert IPv4 string to array of 4 numbers
 template IPv4StringToNumbers() {
     signal input ipString[15];  // Max length for IPv4 (xxx.xxx.xxx.xxx)
