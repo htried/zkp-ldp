@@ -3,7 +3,7 @@ pragma circom 2.2.0;
 include "circomlib/circuits/bitify.circom";
 include "circomlib/circuits/comparators.circom";
 include "circomlib/circuits/gates.circom";
-include "circomlib/circuits/sha256/sha256.circom";
+include "circomlib/circuits/poseidon.circom";
 include "circomlib/circuits/babyjub.circom";
 include "circomlib/circuits/pedersen.circom";
 
@@ -267,58 +267,48 @@ template CreateState(num_ips) {
     signal output nonceOut;
     signal output ipBits[num_ips * 32]; // 32 bits for each IP address
     signal output nonceBits[32]; // 32 bits for nonce
-    signal output stateHash[256]; // Hash of ipBits and nonce
+    signal output stateHash; // Hash of ipBits and nonce
     signal output sig_r;
     signal output sig_s_inv;
 
     ipStringsOut <== ipStrings;
     nonceOut <== nonce;
 
-    // Convert nonce to bits
-    component nonceToBits = Num2Bits(32);
-    nonceToBits.in <== nonce;
-    nonceBits <== nonceToBits.out;
-
     // Convert IP strings to bits
     component ipConverters[num_ips];
+    component ipsAs32BitNumbers[num_ips];
     for (var i = 0; i < num_ips; i++) {
         ipConverters[i] = IPStringToBits();
         ipConverters[i].ipString <== ipStrings[i];
-        
+        ipsAs32BitNumbers[i] = Bits2Num(32);
+        ipsAs32BitNumbers[i].in <== ipConverters[i].ipBits;
         for (var j = 0; j < 32; j++) {
             ipBits[i * 32 + j] <== ipConverters[i].ipBits[j];
         }
     }
 
     // Hash ipBits and nonce together
-    var len = num_ips * 32 + 32;
-    var hash_in[len];
+    var len = num_ips + 1;
     
-    component hasher = Sha256(len);
+    component hasher = Poseidon(len);
 
     // Combine ipBits and nonceBits into hash input
-    for (var i = 0; i < num_ips * 32; i++) {
-        hash_in[i] = ipBits[i];
+    for (var i = 0; i < num_ips; i++) {
+        hasher.inputs[i] <== ipsAs32BitNumbers[i].out;
     }
-    for (var i = 0; i < 32; i++) {
-        hash_in[num_ips * 32 + i] = nonceBits[i];
-    }
+    hasher.inputs[num_ips] <== nonce;
 
-    hasher.in <== hash_in;
     stateHash <== hasher.out;
 
     // Generate signature of the hash
-    component bits2Num = Bits2Num(256);
-    bits2Num.in <== stateHash;
-    
     // Change from direct assignment to witness computation
-    var signature[2] = Sign(bits2Num.out);
+    var signature[2] = Sign(stateHash);
     sig_r <-- signature[0];
     sig_s_inv <-- signature[1];
 
     // Add constraint to verify the signature is valid
     component verifier = Verify();
-    verifier.hashed_msg <== bits2Num.out;
+    verifier.hashed_msg <== stateHash;
     verifier.r <== sig_r;
     verifier.s_inv <== sig_s_inv;
 
@@ -338,7 +328,7 @@ template ProposeStateUpdate(num_ips) {
     // Output signals
     signal output newState_ipStrings[num_ips][15];
     signal output newState_nonce;
-    signal output stateHash[256];
+    signal output stateHash;
     signal output sig_r;
     signal output sig_s_inv;
 
@@ -403,36 +393,28 @@ template ProposeStateUpdate(num_ips) {
 // Convert function to template
 template CheckValidStateUpdate() {
     // Define input signals for the states
-    signal input initialStateHash[256];
+    signal input initialStateHash;
     signal input initialSigR;
     signal input initialSigSInv;
-    signal input proposedStateHash[256];
+    signal input proposedStateHash;
     signal input proposedSigR;
     signal input proposedSigSInv;
     signal output isValid;
 
-    // Convert hash bits to number for verification
-    component initialBits2Num = Bits2Num(256);
-    initialBits2Num.in <== initialStateHash;
-
     // Verify initial state signature
     component initialVerifier = Verify();
-    initialVerifier.hashed_msg <== initialBits2Num.out;
+    initialVerifier.hashed_msg <== initialStateHash;
     initialVerifier.r <== initialSigR;
     initialVerifier.s_inv <== initialSigSInv;
 
-    // Convert proposed hash bits to number
-    component proposedBits2Num = Bits2Num(256);
-    proposedBits2Num.in <== proposedStateHash;
-
     // Compare hashes
     component hashesEqual = IsEqual();
-    hashesEqual.in[0] <== initialBits2Num.out;
-    hashesEqual.in[1] <== proposedBits2Num.out;
+    hashesEqual.in[0] <== initialStateHash;
+    hashesEqual.in[1] <== proposedStateHash;
 
     // Verify proposed state signature
     component proposedVerifier = Verify();
-    proposedVerifier.hashed_msg <== proposedBits2Num.out;
+    proposedVerifier.hashed_msg <== proposedStateHash;
     proposedVerifier.r <== proposedSigR;
     proposedVerifier.s_inv <== proposedSigSInv;
 
