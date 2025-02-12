@@ -107,12 +107,8 @@ template Mux1() {
     // Ensure c is binary (0 or 1)
     c * (c - 1) === 0;
 
-    // Intermediate signal for the product
-    signal t;
-    t <== c * (a - b);
-
     // Constraint for multiplexing
-    out <== b + t;
+    out <== c * (a - b) + b;
 }
 
 // ============== ECDSA SIGNATURE FUNCTIONS =================
