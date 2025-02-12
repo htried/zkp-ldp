@@ -11,15 +11,6 @@ else:
     with open("input.json", "r") as in_json:
         old_in = json.load(in_json)
 
-def replace_0(lst, new):
-	if new in lst:
-		return lst
-
-	else:
-		i = lst.index("0")
-		lst[i] = new
-		return lst
-
 def update_ip_strings(old_ips, new_ip, ip_exists):
 	num_ips = len(old_ips)
 	new_ips = old_ips.copy()
