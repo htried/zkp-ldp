@@ -313,9 +313,7 @@ template CreateState(num_ips) {
     verifier.s_inv <== sig_s_inv;
 
     // Now use the template's output
-    component isEqual = IsEqual();
-    isEqual.in[0] <== verifier.out;
-    isEqual.in[1] <== 1;
+    verifier.out === 1;
 }
 
 // Propose a new state update
@@ -341,7 +339,9 @@ template ProposeStateUpdate(num_ips) {
     component ipEqual[num_ips];
 
     // Initialize components and check for IP existence first
-    var exists = 0;
+    component exists_ors[num_ips];
+    exists_ors[0] = OR();
+    exists_ors[0].a <== 0;
     for (var j = 0; j < num_ips; j++) {
         isZero[j] = IsZero();
         ipEqual[j] = MultiEqual(15);
@@ -351,12 +351,15 @@ template ProposeStateUpdate(num_ips) {
             ipEqual[j].in[0][k] <== initialState_ipStrings[j][k];
             ipEqual[j].in[1][k] <== new_ip[k];
         }
-        exists = exists | ipEqual[j].out;
+        exists_ors[j].b <== ipEqual[j].out;
+        if (j < (num_ips - 1)) {
+            exists_ors[j+1] = OR();
+            exists_ors[j+1].a <== exists_ors[j].out;
+        }
     }
 
     // Move exists_binary assignment outside the loops
-    exists_binary <-- exists > 0 ? 1 : 0;
-    exists_binary * (exists_binary - 1) === 0;
+    exists_binary <== exists_ors[num_ips - 1].out;
 
     // Process IP updates
     for (var i = 0; i < num_ips; i++) {
@@ -467,7 +470,7 @@ template AttemptStateUpdate(num_ips) {
     
     // Select between proposed and initial state based on validation
     signal selector;
-    selector <== stateValidator.isValid + is_challenge_response;
+    selector <== stateValidator.isValid + is_challenge_response - (stateValidator.isValid * is_challenge_response);
     
     for (var i = 0; i < num_ips; i++) {
         for (var j = 0; j < 15; j++) {
