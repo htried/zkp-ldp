@@ -8,17 +8,25 @@ else:
     with open("input.json", "r") as in_json:
         old_in = json.load(in_json)
 
-def format_and_pad_ip(ip):
-	# Pad IPv4 to 15 characters (xxx.xxx.xxx.xxx)
-	return [ord(c) for c in ip.rjust(15, '0')]
+# Convert the IP to a value between 0 and 2**32 - 1
+# Viewing IP as a base-255 number, little endian.
+def ip_to_field_element(ip):
+	parts = ip.split('.')
+	assert(len(parts) == 4 and all(0 <= int(part) <= 255 for part in parts))
+	felt = 0
+	pow_of_256 = 1
+	for part in parts.reverse():
+		felt += int(part) * pow_of_256
+		pow_of_256 *= 256
+	return felt
 
 if not old_in:
 	print("No existing input found, creating new input")
-	empty_ip = [ord('0')] * 15  # Create array of '0' characters for IPv4
+	empty_ip = 0
 	new_in = {
 		"ipStrings": [empty_ip] * 5,
 		"new_ip": empty_ip,
-		"nonce": str(random.randint(1, 2**32)),
+		"nonce": random.randint(1, 2**32),
 		"is_challenge_response": "0"
 	}
 else:
@@ -35,13 +43,15 @@ else:
 		except (ValueError, AttributeError):
 			print("Invalid IPv4 format. Please try again.")
 	
-	new_ip = format_and_pad_ip(ip)
+	new_ip = ip_to_field_element(ip)
 	test_challenge_response = input("Test challenge response? (0/1): ")
+	test_challenge_response = int(test_challenge_response) 
+	assert(test_challenge_response == 0 or test_challenge_response == 1)
 
 	new_in = {
 		"ipStrings": old_in['ipStrings'],
 		"new_ip": new_ip,
-		"nonce": str(random.randint(1, 2**32)),
+		"nonce": random.randint(1, 2**32),
 		"is_challenge_response": test_challenge_response
 	}
 
