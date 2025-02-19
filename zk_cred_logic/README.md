@@ -4,7 +4,7 @@ This is a proof of concept for using zk proofs to verify ip addresses in private
 
 ## Setup
 
-1. Install the circom library: `npm install -g circom` (if you're on MacBook you may have to follow [these instructions](https://docs.circom.io/getting-started/installation/#installing-circom)).
+1. Install the circom library: `npm install -g circom` (if you're on Mac you may have to follow [these instructions](https://docs.circom.io/getting-started/installation/#installing-circom)).
 2. Install the snarkjs library: `npm install -g snarkjs`
 3. cd to the zk_cred_logic directory and run `git clone https://github.com/iden3/circomlib.git` to get the circom standard library installed.
 

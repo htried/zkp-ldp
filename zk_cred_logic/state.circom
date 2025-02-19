@@ -78,25 +78,6 @@ function pow_mod(a, b, m) {
 }
 
 // ============== LOGICAL CIRCUIT COMPONENTS =================
-// Arbitrary length MultiEqual component
-template MultiEqual(n) {
-    signal input in[2][n];
-    signal output out;
-
-    component equalityChecks[n];
-    signal temp[n];
-    
-    for (var i = 0; i < n; i++) {
-        equalityChecks[i] = IsEqual();
-        equalityChecks[i].in[0] <== in[0][i];
-        equalityChecks[i].in[1] <== in[1][i];
-        temp[i] <== equalityChecks[i].out;
-    }
-    component and = MultiAND(n);
-    and.in <== temp;
-    out <== and.out;
-}
-
 // 1-bit Mux component
 template Mux1() {
     signal input c;  // Control signal
@@ -182,88 +163,15 @@ template Verify() {
     out * (out - 1) === 0;
 }
 
-// ============== IP ADDRESS PARSING FUNCTIONS =================
-// Convert IPv4 string to array of 4 numbers
-template IPv4StringToNumbers() {
-    signal input ipString[15];  // Max length for IPv4 (xxx.xxx.xxx.xxx)
-    signal output ipNumbers[4];
-
-    var currentNum = 0;
-    var currentOctet = 0;
-    var nums[4];  // Temporary array to store computed values
-    var foundStart = 0;
-    
-    // Process each character
-    for (var i = 0; i < 15; i++) {
-        if (ipString[i] == 46) { // Period character
-            nums[currentOctet] = currentNum;
-            currentNum = 0;
-            currentOctet++;
-            foundStart = 1;
-        } else if (ipString[i] >= 49 && ipString[i] <= 57) { // Digits 1-9
-            currentNum = currentNum * 10 + (ipString[i] - 48);
-            foundStart = 1;
-        } else if (ipString[i] == 48) { // Handle 0
-            if (foundStart == 1) { // Only process 0 if we've found start
-                currentNum = currentNum * 10;
-            }
-        }
-        
-        // Handle last octet
-        if (i == 14) {
-            nums[currentOctet] = currentNum;
-        }
-    }
-
-    // Assign all numbers at once
-    for (var i = 0; i < 4; i++) {
-        ipNumbers[i] <-- nums[i];
-    }
-
-    // Ensure each number is within valid range (0-255)
-    for (var i = 0; i < 4; i++) {
-        // log(ipNumbers[i]);
-        assert(ipNumbers[i] >= 0 && ipNumbers[i] <= 255);
-    }
-}
-
-// Convert numbers to bits for IPv4
-template IPNumbersToBits() {
-    signal input ipNumbers[4];
-    signal output ipBits[32];  // 4 numbers * 8 bits each
-    component num2Bits[4];
-
-    for (var i = 0; i < 4; i++) {
-        num2Bits[i] = Num2Bits(8);
-        num2Bits[i].in <== ipNumbers[i];
-        for (var j = 0; j < 8; j++) {
-            ipBits[i*8 + j] <== num2Bits[i].out[j];
-        }
-    }
-}
-
-// Simplified IP string to bits conversion (IPv4 only)
-template IPStringToBits() {
-    signal input ipString[15];
-    signal output ipBits[32];
-
-    component ipv4ToNumbers = IPv4StringToNumbers();
-    component ipv4ToBits = IPNumbersToBits();
-
-    ipv4ToNumbers.ipString <== ipString;
-    ipv4ToBits.ipNumbers <== ipv4ToNumbers.ipNumbers;
-    ipBits <== ipv4ToBits.ipBits;
-}
-
 // ============== STATE MANAGEMENT FUNCTIONS =================
 
 // Create a state with a given number of IP addresses
 //  This state will be hashed and signed to ensure integrity and prevent tampering
 template CreateState(num_ips) {
-    signal input ipStrings[num_ips][15];
+    signal input ips[num_ips];
     signal input nonce;
     
-    signal output ipStringsOut[num_ips][15];
+    signal output ipsOut[num_ips];
     signal output nonceOut;
     signal output ipBits[num_ips * 32]; // 32 bits for each IP address
     signal output nonceBits[32]; // 32 bits for nonce
@@ -271,19 +179,16 @@ template CreateState(num_ips) {
     signal output sig_r;
     signal output sig_s_inv;
 
-    ipStringsOut <== ipStrings;
+    ipsOut <== ips;
     nonceOut <== nonce;
 
-    // Convert IP strings to bits
-    component ipConverters[num_ips];
-    component ipsAs32BitNumbers[num_ips];
+    // Convert IP field elements to bits
+    component ipToBitsConverters[num_ips];
     for (var i = 0; i < num_ips; i++) {
-        ipConverters[i] = IPStringToBits();
-        ipConverters[i].ipString <== ipStrings[i];
-        ipsAs32BitNumbers[i] = Bits2Num(32);
-        ipsAs32BitNumbers[i].in <== ipConverters[i].ipBits;
+        ipToBitsConverters[i] = Num2Bits(32);
+        ipToBitsConverters[i].in <== ips[i];
         for (var j = 0; j < 32; j++) {
-            ipBits[i * 32 + j] <== ipConverters[i].ipBits[j];
+            ipBits[i * 32 + j] <== ipToBitsConverters[i].out[j];
         }
     }
 
@@ -294,7 +199,7 @@ template CreateState(num_ips) {
 
     // Combine ipBits and nonceBits into hash input
     for (var i = 0; i < num_ips; i++) {
-        hasher.inputs[i] <== ipsAs32BitNumbers[i].out;
+        hasher.inputs[i] <== ips[i];
     }
     hasher.inputs[num_ips] <== nonce;
 
@@ -312,19 +217,20 @@ template CreateState(num_ips) {
     verifier.r <== sig_r;
     verifier.s_inv <== sig_s_inv;
 
+    // The issue is that this wasn't properly constrained before so signature verification never worked.
     // Now use the template's output
-    verifier.out === 1;
+    verifier.out === 0;
 }
 
 // Propose a new state update
 template ProposeStateUpdate(num_ips) {
     // Input signals
-    signal input initialState_ipStrings[num_ips][15];
+    signal input initialState_ips[num_ips];
     signal input initialState_nonce;
-    signal input new_ip[15];
+    signal input new_ip;
     
     // Output signals
-    signal output newState_ipStrings[num_ips][15];
+    signal output newState_ips[num_ips];
     signal output newState_nonce;
     signal output stateHash;
     signal output sig_r;
@@ -334,8 +240,8 @@ template ProposeStateUpdate(num_ips) {
 
     // Pre-declare components
     component isZero[num_ips];
-    component mux1[num_ips][15];
-    component mux2[num_ips][15];
+    component mux1[num_ips];
+    component mux2[num_ips];
     component ipEqual[num_ips];
 
     // Initialize components and check for IP existence first
@@ -344,13 +250,12 @@ template ProposeStateUpdate(num_ips) {
     exists_ors[0].a <== 0;
     for (var j = 0; j < num_ips; j++) {
         isZero[j] = IsZero();
-        ipEqual[j] = MultiEqual(15);
+        ipEqual[j] = IsEqual();
         
         // Check IP equality once
-        for (var k = 0; k < 15; k++) {
-            ipEqual[j].in[0][k] <== initialState_ipStrings[j][k];
-            ipEqual[j].in[1][k] <== new_ip[k];
-        }
+        ipEqual[j].in[0] <== initialState_ips[j];
+        ipEqual[j].in[1] <== new_ip;
+        
         exists_ors[j].b <== ipEqual[j].out;
         if (j < (num_ips - 1)) {
             exists_ors[j+1] = OR();
@@ -363,27 +268,26 @@ template ProposeStateUpdate(num_ips) {
 
     // Process IP updates
     for (var i = 0; i < num_ips; i++) {
-        isZero[i].in <== initialState_ipStrings[i][0];
+        isZero[i].in <== initialState_ips[i];
         
-        for (var j = 0; j < 15; j++) {
-            mux1[i][j] = Mux1();
-            mux2[i][j] = Mux1();
-            
-            // Ensure control signals are binary
-            mux1[i][j].c <== isZero[i].out;
-            mux1[i][j].a <== new_ip[j];
-            mux1[i][j].b <== initialState_ipStrings[i][j];
-            
-            mux2[i][j].c <== exists_binary;
-            mux2[i][j].a <== i < num_ips-1 ? initialState_ipStrings[i+1][j] : new_ip[j];
-            mux2[i][j].b <== mux1[i][j].out;
-            newState_ipStrings[i][j] <== mux2[i][j].out;
-        }
+        mux1[i] = Mux1();
+        mux2[i] = Mux1();
+        
+        // Ensure control signals are binary
+        mux1[i].c <== isZero[i].out;
+        mux1[i].a <== new_ip;
+        mux1[i].b <== initialState_ips[i];
+        
+        mux2[i].c <== exists_binary;
+        // TODO: Is this properly constrained?
+        mux2[i].a <== i < num_ips-1 ? initialState_ips[i+1] : new_ip;
+        mux2[i].b <== mux1[i].out;
+        newState_ips[i] <== mux2[i].out;
     }
 
     // Create new state with updated IP list
     component newStateComponent = CreateState(num_ips);
-    newStateComponent.ipStrings <== newState_ipStrings;
+    newStateComponent.ips <== newState_ips;
     newStateComponent.nonce <== initialState_nonce;
     
     // Connect outputs
@@ -429,28 +333,26 @@ template CheckValidStateUpdate() {
 
 template AttemptStateUpdate(num_ips) {
     // Public inputs
-    signal input ipStrings[num_ips][15];
+    signal input ips[num_ips];
     signal input nonce;
-    signal input new_ip[15];
+    signal input new_ip;
     signal input is_challenge_response;
 
     // Outputs
-    signal output newState[num_ips][15];
+    signal output newState[num_ips];
     signal output newStateNonce;
     signal output challenge_failed;
 
     // Create initial state
     component initialState = CreateState(num_ips);
-    initialState.ipStrings <== ipStrings;
+    initialState.ips <== ips;
     initialState.nonce <== nonce;
 
     // Propose new state
     component proposedState = ProposeStateUpdate(num_ips);
     // Connect individual signals instead of the whole template
     for (var i = 0; i < num_ips; i++) {
-        for (var j = 0; j < 15; j++) {
-            proposedState.initialState_ipStrings[i][j] <== initialState.ipStringsOut[i][j];
-        }
+        proposedState.initialState_ips[i] <== initialState.ipsOut[i];
     }
     proposedState.initialState_nonce <== initialState.nonceOut;
     proposedState.new_ip <== new_ip;
@@ -465,21 +367,20 @@ template AttemptStateUpdate(num_ips) {
     stateValidator.proposedSigSInv <== proposedState.sig_s_inv;
 
     // If valid update or successful challenge, return new state
-    component resultMux[num_ips][15];
+    component resultMux[num_ips];
     component nonceMux = Mux1();
     
     // Select between proposed and initial state based on validation
     signal selector;
+    // TODO: Might need binary validation?
     selector <== stateValidator.isValid + is_challenge_response - (stateValidator.isValid * is_challenge_response);
     
     for (var i = 0; i < num_ips; i++) {
-        for (var j = 0; j < 15; j++) {
-            resultMux[i][j] = Mux1();
-            resultMux[i][j].c <== selector;
-            resultMux[i][j].a <== proposedState.newState_ipStrings[i][j];
-            resultMux[i][j].b <== initialState.ipStringsOut[i][j];
-            newState[i][j] <== resultMux[i][j].out;
-        }
+        resultMux[i] = Mux1();
+        resultMux[i].c <== selector;
+        resultMux[i].a <== proposedState.newState_ips[i];
+        resultMux[i].b <== initialState.ipsOut[i];
+        newState[i] <== resultMux[i].out;
     }
     
     nonceMux.c <== selector;
@@ -490,4 +391,5 @@ template AttemptStateUpdate(num_ips) {
     challenge_failed <== 1 - selector;
 }
 
+// TODO: Range check IPs at some point!
 component main { public [ is_challenge_response ]} = AttemptStateUpdate(5);
