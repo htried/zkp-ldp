@@ -23,3 +23,6 @@ zk_cred_logic/public.json
 zk_cred_logic/*.wtns
 zk_cred_logic/*.ptau
 zk_cred_logic/*.zkey
+
+circomlib/
+geohash_logic/build/
