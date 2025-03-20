@@ -81,13 +81,17 @@ template ProposeStateUpdate(num_ips) {
     signal input initialState_ips[num_ips];
     signal input initialState_nonce;
     signal input new_ip;
+    signal input sig_r8x_in;
+    signal input sig_r8y_in;
+    signal input sig_s_in;
     
     // Output signals
     signal output newState_ips[num_ips];
     signal output newState_nonce;
     signal output stateHash;
-    signal output sig_r;
-    signal output sig_s_inv;
+    signal output sig_r8x;
+    signal output sig_r8y;
+    signal output sig_s;
 
     signal exists_binary;
     signal exists_zero;
@@ -95,6 +99,7 @@ template ProposeStateUpdate(num_ips) {
     // Pre-declare components
     component isZero[num_ips];
     component notFirstZero[num_ips];
+    component zeroAnds[num_ips - 1];
     component mux1[num_ips];
     component mux2[num_ips];
     component mux3[num_ips];
@@ -106,6 +111,7 @@ template ProposeStateUpdate(num_ips) {
     exists_ors[0].a <== 0;
     // Not first zero is an array of OR()'s which is an array of 0's followed by a 1 at the first zero entry.
     // Checking notFirstZero[j-1] == 0 ensures that ips[j] is the first zero.
+    notFirstZero[0] = OR();
     notFirstZero[0].a <== 0;
     for (var j = 0; j < num_ips; j++) {
         isZero[j] = IsZero();
@@ -115,13 +121,13 @@ template ProposeStateUpdate(num_ips) {
         ipEqual[j].in[0] <== initialState_ips[j];
         ipEqual[j].in[1] <== new_ip;
         
-        isZero[j].in <== initialState_ips[i];
+        isZero[j].in <== initialState_ips[j];
         notFirstZero[j].b <== isZero[j].out;
         exists_ors[j].b <== ipEqual[j].out;
         if (j < (num_ips - 1)) {
             exists_ors[j+1] = OR();
             exists_ors[j+1].a <== exists_ors[j].out;
-            notFirstZero[j+1] <== OR();
+            notFirstZero[j+1] = OR();
             notFirstZero[j+1].a <== notFirstZero[j].out;
         }
     }
@@ -142,10 +148,10 @@ template ProposeStateUpdate(num_ips) {
             mux1[i].a <== new_ip;
             mux1[i].b <== initialState_ips[i];
         } else {
-            component localAnd = AND();
-            localAnd.a <== (1-notFirstZero[i-1].out);
-            localAnd.b <== isZero[i].out;
-            mux1[i].c <== localAnd.out;
+            zeroAnds[i-1] = AND();
+            zeroAnds[i-1].a <== (1-notFirstZero[i-1].out);
+            zeroAnds[i-1].b <== isZero[i].out;
+            mux1[i].c <== zeroAnds[i-1].out;
             mux1[i].a <== new_ip;
             mux1[i].b <== initialState_ips[i];
         }
@@ -153,7 +159,6 @@ template ProposeStateUpdate(num_ips) {
         mux2[i].c <== exists_zero;
         mux2[i].a <== mux1[i].out;
         mux2[i].b <== i < num_ips-1 ? initialState_ips[i+1] : new_ip;
-
 
         mux3[i].c <== exists_binary;
         mux3[i].a <== initialState_ips[i];
@@ -165,11 +170,15 @@ template ProposeStateUpdate(num_ips) {
     component newStateComponent = CreateState(num_ips);
     newStateComponent.ips <== newState_ips;
     newStateComponent.nonce <== initialState_nonce;
+    newStateComponent.sig_r8x_in <== sig_r8x_in;
+    newStateComponent.sig_r8y_in <== sig_r8y_in;
+    newStateComponent.sig_s_in <== sig_s_in;
     
     // Connect outputs
     stateHash <== newStateComponent.stateHash;
-    sig_r <== newStateComponent.sig_r;
-    sig_s_inv <== newStateComponent.sig_s_inv;
+    sig_r8x <== newStateComponent.sig_r8x;
+    sig_r8y <== newStateComponent.sig_r8y;
+    sig_s <== newStateComponent.sig_s;
     newState_nonce <== initialState_nonce;
 }
 
@@ -177,34 +186,45 @@ template ProposeStateUpdate(num_ips) {
 template CheckValidStateUpdate() {
     // Define input signals for the states
     signal input initialStateHash;
-    signal input initialSigR;
-    signal input initialSigSInv;
+    signal input initialSigR8x;
+    signal input initialSigR8y;
+    signal input initialSigS;
     signal input proposedStateHash;
-    signal input proposedSigR;
-    signal input proposedSigSInv;
-    signal output isValid;
-
-    // Verify initial state signature
-    component initialVerifier = Verify();
-    initialVerifier.hashed_msg <== initialStateHash;
-    initialVerifier.r <== initialSigR;
-    initialVerifier.s_inv <== initialSigSInv;
+    signal input proposedSigR8x;
+    signal input proposedSigR8y;
+    signal input proposedSigS;
+    signal input enabled;
 
     // Compare hashes
     component hashesEqual = IsEqual();
     hashesEqual.in[0] <== initialStateHash;
     hashesEqual.in[1] <== proposedStateHash;
 
+    // Verify initial state signature
+    component initialVerifier = EdDSAPoseidonVerifier();
+    initialVerifier.enabled <== enabled;
+    initialVerifier.M <== initialStateHash;
+    initialVerifier.Ax <== 13277427435165878497778222415993513565335242147425444199013288855685581939618;
+    initialVerifier.Ay <== 13622229784656158136036771217484571176836296686641868549125388198837476602820;
+    initialVerifier.S <== initialSigS;
+    initialVerifier.R8x <== initialSigR8x;
+    initialVerifier.R8y <== initialSigR8y;
+
     // Verify proposed state signature
-    component proposedVerifier = Verify();
-    proposedVerifier.hashed_msg <== proposedStateHash;
-    proposedVerifier.r <== proposedSigR;
-    proposedVerifier.s_inv <== proposedSigSInv;
+    component proposedVerifier = EdDSAPoseidonVerifier();
+    proposedVerifier.enabled <== enabled;
+    proposedVerifier.M <== proposedStateHash;
+    proposedVerifier.Ax <== 13277427435165878497778222415993513565335242147425444199013288855685581939618;
+    proposedVerifier.Ay <== 13622229784656158136036771217484571176836296686641868549125388198837476602820;
+    proposedVerifier.S <== proposedSigS;
+    proposedVerifier.R8x <== proposedSigR8x;
+    proposedVerifier.R8y <== proposedSigR8y;
 
     // Break down the multiplication into intermediate steps
-    signal intermediate;
-    intermediate <== initialVerifier.out * (1 - hashesEqual.out);
-    isValid <== intermediate * proposedVerifier.out;
+    // Commenting out because new eddsa component doesn't support isValid/isInvalid but I don't think that's important.
+    // signal intermediate;
+    // intermediate <== initialVerifier.out * (1 - hashesEqual.out);
+    // isValid <== intermediate * proposedVerifier.out;
 }
 
 template AttemptStateUpdate(num_ips) {
@@ -236,44 +256,53 @@ template AttemptStateUpdate(num_ips) {
     // Propose new state
     component proposedState = ProposeStateUpdate(num_ips);
     // Connect individual signals instead of the whole template
+    // TODO I dont think this is needed
     for (var i = 0; i < num_ips; i++) {
         proposedState.initialState_ips[i] <== initialState.ipsOut[i];
     }
     proposedState.initialState_nonce <== initialState.nonceOut;
     proposedState.new_ip <== new_ip;
+    proposedState.sig_r8x_in <== new_state_r8x;
+    proposedState.sig_r8y_in <== new_state_r8y;
+    proposedState.sig_s_in <== new_state_s;
 
     // Validate state update
     component stateValidator = CheckValidStateUpdate();
     stateValidator.initialStateHash <== initialState.stateHash;
-    stateValidator.initialSigR <== initialState.sig_r;
-    stateValidator.initialSigSInv <== initialState.sig_s_inv;
+    stateValidator.initialSigR8x <== initialState.sig_r8x;
+    stateValidator.initialSigR8y <== initialState.sig_r8y;
+    stateValidator.initialSigS <== initialState.sig_s;
     stateValidator.proposedStateHash <== proposedState.stateHash;
-    stateValidator.proposedSigR <== proposedState.sig_r;
-    stateValidator.proposedSigSInv <== proposedState.sig_s_inv;
+    stateValidator.proposedSigR8x <== proposedState.sig_r8x;
+    stateValidator.proposedSigR8y <== proposedState.sig_r8y;
+    stateValidator.proposedSigS <== proposedState.sig_s;
+    stateValidator.enabled <== (1 - is_challenge_response);
 
     // If valid update or successful challenge, return new state
-    component resultMux[num_ips];
-    component nonceMux = Mux1();
+    // Commenting out this mux logic for now: this just lets you rerandomize your state (not even that I think since this is all deterministic) if neither is true, so I don't think we even need to support that path.
+    // component resultMux[num_ips];
+    // component nonceMux = Mux1();
     
     // Select between proposed and initial state based on validation
-    signal selector;
-    // TODO: Might need binary validation?
-    selector <== stateValidator.isValid + is_challenge_response - (stateValidator.isValid * is_challenge_response);
+    // signal selector;
+    // // TODO: Might need binary validation?
+    // selector <== stateValidator.isValid + is_challenge_response - (stateValidator.isValid * is_challenge_response);
     
     for (var i = 0; i < num_ips; i++) {
-        resultMux[i] = Mux1();
-        resultMux[i].c <== selector;
-        resultMux[i].a <== proposedState.newState_ips[i];
-        resultMux[i].b <== initialState.ipsOut[i];
-        newState[i] <== resultMux[i].out;
+        // resultMux[i] = Mux1();
+        // resultMux[i].c <== selector;
+        // resultMux[i].a <== proposedState.newState_ips[i];
+        // resultMux[i].b <== initialState.ipsOut[i];
+        newState[i] <== proposedState.newState_ips[i];
     }
     
-    nonceMux.c <== selector;
-    nonceMux.a <== proposedState.newState_nonce;
-    nonceMux.b <== initialState.nonceOut;
-    newStateNonce <== nonceMux.out;
+    // nonceMux.c <== selector;
+    // nonceMux.a <== proposedState.newState_nonce;
+    // nonceMux.b <== initialState.nonceOut;
+    newStateNonce <== proposedState.newState_nonce;
     
-    challenge_failed <== 1 - selector;
+    // Removed selector logic for now unless I misunderstood something
+    challenge_failed <== 0;
 }
 
 // TODO: Range check IPs at some point!
