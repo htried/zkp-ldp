@@ -1,5 +1,5 @@
 import json
-import os
+import os, subprocess
 import random
 
 if not os.path.exists("input.json") or os.path.getsize("input.json") == 0:
@@ -54,6 +54,55 @@ else:
 		"nonce": random.randint(1, 2**32),
 		"is_challenge_response": test_challenge_response
 	}
+
+# State is a list of field elements as previously generated.
+def generate_eddsa_signature(state, nonce):
+    # Convert the list of integers to a string format expected by the script
+    sig_input = state + [nonce]
+    try:
+        result = subprocess.run(
+            ["node", "generate_eddsa_signature.js", str(sig_input)],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        # Parse and return the JSON output
+        return json.loads(result.stdout)
+    
+    except subprocess.CalledProcessError as e:
+        print("Error executing the script:", e)
+        return None
+    except json.JSONDecodeError as e:
+        print("Error parsing JSON output:", e)
+        return None
+
+# Generates the list of IPs for the new state when new_ip is inserted
+def generate_new_state_ip_list(state, new_ip):
+    if new_ip in state:
+        return state
+    elif 0 in state:
+        state[state.index(0)] = new_ip
+        return state
+    else:
+        state = state[1:]
+        state.append(new_ip)
+        return state
+        
+# Signs the new     
+def produce_input_with_signatures(new_in):
+    old_state_signature = generate_eddsa_signature(new_in['ips'], new_in['nonce'])
+    
+    new_state_ips = generate_new_state_ip_list(new_in['ips'], new_in['new_ip'])
+    new_state_signature = generate_eddsa_signature(new_state_ips, new_in['nonce'])
+    
+    new_in['initial_state_r8x'] = old_state_signature['R8x']
+    new_in['initial_state_r8y'] = old_state_signature['R8y']
+    new_in['initial_state_s'] = old_state_signature['S']
+    new_in['proposed_state_r8x'] = new_state_signature['R8x']
+    new_in['proposed_state_r8y'] = new_state_signature['R8y']
+    new_in['proposed_state_s'] = new_state_signature['S']
+
+produce_input_with_signatures(new_in)
 
 with open("input.json", "w") as in_json:
 	json.dump(new_in, in_json)

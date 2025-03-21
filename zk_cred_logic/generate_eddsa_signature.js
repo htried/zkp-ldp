@@ -20,13 +20,12 @@ async function main() {
         throw new Error("Input must be an array of integers");
     }
 
-    // const inputArray = [3232235521,3232235522,3232235523,3232235524,3232235525];
     const poseidon = await buildPoseidon();
     const F_Poseidon = poseidon.F;
     
     // Hash the input
     const hash = poseidon(inputArray);
-    // console.log(hash);
+    console.log(F_Poseidon.toObject(hash).toString());
 
     // Initialize EdDSA and BabyJubJub
     const eddsa = await buildEddsa();

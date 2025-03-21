@@ -109,7 +109,7 @@ template ProposeStateUpdate(num_ips) {
     component exists_ors[num_ips];
     exists_ors[0] = OR();
     exists_ors[0].a <== 0;
-    // Not first zero is an array of OR()'s which is an array of 0's followed by a 1 at the first zero entry.
+    // Not first zero is an array of OR()'s which is an array of 0's followed by 1's after the first zero entry.
     // Checking notFirstZero[j-1] == 0 ensures that ips[j] is the first zero.
     notFirstZero[0] = OR();
     notFirstZero[0].a <== 0;
@@ -137,6 +137,10 @@ template ProposeStateUpdate(num_ips) {
     exists_zero <== notFirstZero[num_ips - 1].out;
 
     // Process IP updates
+    // Explanation of logic:
+    // First, if the IP is already in the state, then do nothing.
+    // Otherwise, if there is a zero available, then put the new IP into the empty slot.
+    // Last, if no zeros available, and IP not in state then move each IP up in state and then insert the last one.
     for (var i = 0; i < num_ips; i++) {
         mux1[i] = Mux1();
         mux2[i] = Mux1();
@@ -158,14 +162,14 @@ template ProposeStateUpdate(num_ips) {
         
         mux2[i].c <== exists_zero;
         mux2[i].a <== mux1[i].out;
-        mux2[i].b <== i < num_ips-1 ? initialState_ips[i+1] : new_ip;
+        mux2[i].b <== i == num_ips-1 ? new_ip : initialState_ips[i+1];
 
         mux3[i].c <== exists_binary;
         mux3[i].a <== initialState_ips[i];
         mux3[i].b <== mux2[i].out;
         newState_ips[i] <== mux3[i].out;
     }
-
+    
     // Create new state with updated IP list
     component newStateComponent = CreateState(num_ips);
     newStateComponent.ips <== newState_ips;
@@ -206,21 +210,21 @@ template CheckValidStateUpdate() {
     initialVerifier.M <== initialStateHash;
     initialVerifier.Ax <== 13277427435165878497778222415993513565335242147425444199013288855685581939618;
     initialVerifier.Ay <== 13622229784656158136036771217484571176836296686641868549125388198837476602820;
-    initialVerifier.S <== initialSigS;
     initialVerifier.R8x <== initialSigR8x;
     initialVerifier.R8y <== initialSigR8y;
+    initialVerifier.S <== initialSigS;
 
     // Verify proposed state signature
     component proposedVerifier = EdDSAPoseidonVerifier();
     proposedVerifier.enabled <== enabled;
     proposedVerifier.M <== proposedStateHash;
+    // Hardcoding keys for now.
     proposedVerifier.Ax <== 13277427435165878497778222415993513565335242147425444199013288855685581939618;
     proposedVerifier.Ay <== 13622229784656158136036771217484571176836296686641868549125388198837476602820;
     proposedVerifier.S <== proposedSigS;
     proposedVerifier.R8x <== proposedSigR8x;
     proposedVerifier.R8y <== proposedSigR8y;
 
-    // Break down the multiplication into intermediate steps
     // Commenting out because new eddsa component doesn't support isValid/isInvalid but I don't think that's important.
     // signal intermediate;
     // intermediate <== initialVerifier.out * (1 - hashesEqual.out);
@@ -256,7 +260,7 @@ template AttemptStateUpdate(num_ips) {
     // Propose new state
     component proposedState = ProposeStateUpdate(num_ips);
     // Connect individual signals instead of the whole template
-    // TODO I dont think this is needed
+    // TODO: I dont think doing this via for loop is needed
     for (var i = 0; i < num_ips; i++) {
         proposedState.initialState_ips[i] <== initialState.ipsOut[i];
     }
@@ -278,8 +282,8 @@ template AttemptStateUpdate(num_ips) {
     stateValidator.proposedSigS <== proposedState.sig_s;
     stateValidator.enabled <== (1 - is_challenge_response);
 
+    // Commenting out all the mux logic on the next few lines for now: this just lets you rerandomize your state (not even that I think since this is all deterministic) if neither is true, so I don't think we even need to support that path.
     // If valid update or successful challenge, return new state
-    // Commenting out this mux logic for now: this just lets you rerandomize your state (not even that I think since this is all deterministic) if neither is true, so I don't think we even need to support that path.
     // component resultMux[num_ips];
     // component nonceMux = Mux1();
     
