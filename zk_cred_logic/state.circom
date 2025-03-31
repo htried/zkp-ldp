@@ -8,8 +8,6 @@ include "circomlib/circuits/babyjub.circom";
 include "circomlib/circuits/pedersen.circom";
 include "circomlib/circuits/eddsaposeidon.circom";
 
-// PRIVATE KEY = 17043596940825480372850145379760378381660468692634776084163635977000967496844
-
 // ============== LOGICAL CIRCUIT COMPONENTS =================
 // 1-bit Mux component
 template Mux1() {
