@@ -26,3 +26,22 @@ zk_cred_logic/*.zkey
 
 *-checkpoint.ipynb
 */node_modules/*
+
+rappor_logic/circomlib/
+rappor_logic/*_cpp/
+rappor_logic/*_js/
+rappor_logic/ecdsa/
+rappor_logic/proofs/
+rappor_logic/publics/
+rappor_logic/witnesses/
+rappor_logic/*.sym
+rappor_logic/*.r1cs
+rappor_logic/*.wasm
+
+rappor_logic/input.json
+rappor_logic/verification_key.json
+rappor_logic/proof.json
+rappor_logic/public.json
+rappor_logic/*.wtns
+rappor_logic/*.ptau
+rappor_logic/*.zkey
