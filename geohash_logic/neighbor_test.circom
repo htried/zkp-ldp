@@ -4,40 +4,32 @@ include "geohash.circom";
 include "circomlib/circuits/gates.circom";
 
 template NeighborTest() {
-    signal input lat;    // Latitude (scaled by 1000)
-    signal input lng;    // Longitude (scaled by 1000)
-    signal input bits;   // Number of bits to use for the hash
+    signal input lat;    // Latitude (scaled by 1000000)
+    signal input lng;    // Longitude (scaled by 1000000)
     signal input direction; // Direction (0-7)
     
     signal output hash[64];     // Original geohash bits
+    signal output chars[12];    // Original base32 chars
     signal output neighbor[64]; // Neighbor geohash bits
+    signal output neighborChars[12]; // Neighbor base32 chars
     
-    // First encode the coordinates to a geohash
-    component encoder = EncodeIntWithPrecisionSimple(64);
+    // First encode the coordinates
+    component encoder = Geohash(32);
     encoder.lat <== lat;
     encoder.lng <== lng;
-    encoder.bits <== bits;
     
-    // Copy the hash to the output
-    for (var i = 0; i < 64; i++) {
-        hash[i] <== encoder.hash[i];
-    }
+    // Copy original outputs
+    hash <== encoder.bits;
+    chars <== encoder.chars;
     
-    // Now compute the neighbor
-    component neighborCalc = SimpleNeighbor();
-    
-    // Connect the hash bits
-    for (var i = 0; i < 64; i++) {
-        neighborCalc.hash[i] <== hash[i];
-    }
-    
-    // Connect the direction
+    // Compute neighbor
+    component neighborCalc = Neighbor();
+    neighborCalc.hash <== hash;
     neighborCalc.direction <== direction;
     
-    // Copy the neighbor hash to the output
-    for (var i = 0; i < 64; i++) {
-        neighbor[i] <== neighborCalc.neighbor[i];
-    }
+    // Copy neighbor outputs
+    neighbor <== neighborCalc.neighbor;
+    neighborChars <== neighborCalc.chars;
 }
 
 component main {public [lat, lng, direction]} = NeighborTest();

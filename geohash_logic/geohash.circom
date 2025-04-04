@@ -53,239 +53,67 @@ template Deinterleave() {
     odd <== squashOdd.out;
 }
 
-// ---- Integer Coordinates Encoding (Simple Version) ----
+// ---- Main Templates ----
 
-// Encode integer coordinates to a geohash
-template EncodeIntWithPrecisionSimple(MAX_BITS) {
-    signal input lat; // Latitude * 1000 (range: 0 to 90000)
-    signal input lng; // Longitude * 1000 (range: 0 to 360000)
-    signal input bits; // Number of bits of precision
-    signal output hash[MAX_BITS]; // Geohash with specified precision
+template Geohash(precision) {
+    signal input lat;    // Latitude * 1000000  (-90000000 to 90000000)
+    signal input lng;    // Longitude * 1000000 (-180000000 to 180000000)
+    signal output bits[64];    // Binary geohash
+    signal output chars[12];   // Base32 character indices
     
-    // Check input ranges
-    component latInRange = LessThan(20);
-    latInRange.in[0] <== lat;
-    latInRange.in[1] <== 90001; // Max 90.000
-    latInRange.out === 1;
+    // Normalize inputs to positive range
+    signal latNorm <== lat + 90000000;  // Range: 0 to 180000000
+    signal lngNorm <== lng + 180000000; // Range: 0 to 360000000
     
-    component lngInRange = LessThan(20);
-    lngInRange.in[0] <== lng;
-    lngInRange.in[1] <== 360001; // Max 360.000
-    lngInRange.out === 1;
+    // Convert to bits
+    component latBits = Num2Bits(28); // 2^28 > 180000000
+    component lngBits = Num2Bits(29); // 2^29 > 360000000
     
-    // Convert lat/lng to bit arrays (using smaller bit widths to avoid overflow)
-    component latBits = Num2Bits(18);  // 2^18 = 262,144 > 90,000
-    latBits.in <== lat;
+    latBits.in <== latNorm;
+    lngBits.in <== lngNorm;
     
-    component lngBits = Num2Bits(19);  // 2^19 = 524,288 > 360,000
-    lngBits.in <== lng;
+    // Prepare arrays for interleaving
+    signal latArray[32];
+    signal lngArray[32];
     
-    // Create arrays to hold all 32 bits
-    signal latFullBits[32];
-    signal lngFullBits[32];
-    
-    // Copy the bits we have, pad with zeros
+    // Fill arrays with bits in MSB order
     for (var i = 0; i < 32; i++) {
-        if (i < 18) {
-            latFullBits[i] <== latBits.out[i];
+        if (i < 28) {
+            latArray[i] <== latBits.out[27-i];  // MSB first
         } else {
-            latFullBits[i] <== 0;
+            latArray[i] <== 0;
         }
-        
-        if (i < 19) {
-            lngFullBits[i] <== lngBits.out[i];
+        if (i < 29) {
+            lngArray[i] <== lngBits.out[28-i];  // MSB first
         } else {
-            lngFullBits[i] <== 0;
+            lngArray[i] <== 0;
         }
     }
     
     // Interleave the bits
     component interleaver = Interleave();
-    interleaver.even <== latFullBits;
-    interleaver.odd <== lngFullBits;
+    interleaver.even <== latArray;
+    interleaver.odd <== lngArray;
+    bits <== interleaver.out;
     
-    // Truncate to the specified precision
-    component lessThan[MAX_BITS];
-    for (var i = 0; i < MAX_BITS; i++) {
-        lessThan[i] = LessThan(8);
-        lessThan[i].in[0] <== i;
-        lessThan[i].in[1] <== bits;
-        
-        hash[i] <== lessThan[i].out * interleaver.out[i];
+    // Convert first 60 bits to base32 characters (12 chars * 5 bits)
+    for (var i = 0; i < 12; i++) {
+        chars[i] <== 
+            bits[i*5] * 16 +     // MSB
+            bits[i*5 + 1] * 8 +
+            bits[i*5 + 2] * 4 +
+            bits[i*5 + 3] * 2 +
+            bits[i*5 + 4];       // LSB
     }
 }
 
-// ---- Float Coordinates Encoding (Traditional Version) ----
-
-// Specialized template for latitude encoding
-template EncodeLatitude() {
-    signal input lat;  // Latitude (-90 to 90)
-    signal output out; // 32-bit encoded value
-    
-    signal normalized <== (lat + 90) * 23860929;
-    out <== normalized;
-}
-
-// Specialized template for longitude encoding
-template EncodeLongitude() {
-    signal input lng;  // Longitude (-180 to 180)
-    signal output out; // 32-bit encoded value
-    
-    signal normalized <== (lng + 180) * 11930465;
-    out <== normalized;
-}
-
-// Encode float latitude and longitude to a geohash integer
-template EncodeInt() {
-    signal input lat; // Latitude
-    signal input lng; // Longitude
-    signal output hash[64]; // 64-bit geohash
-    
-    // Encode lat and lng to 32-bit integers
-    component encLat = EncodeLatitude();
-    encLat.lat <== lat;
-    
-    component encLng = EncodeLongitude();
-    encLng.lng <== lng;
-    
-    // Convert to bit arrays
-    component latBits = Num2Bits(32);
-    latBits.in <== encLat.out;
-    
-    component lngBits = Num2Bits(32);
-    lngBits.in <== encLng.out;
-    
-    // Interleave the bits
-    component interleaver = Interleave();
-    interleaver.even <== latBits.out;
-    interleaver.odd <== lngBits.out;
-    
-    hash <== interleaver.out;
-}
-
-// Encode with precision - takes only the most significant bits
-template EncodeIntWithPrecision(MAX_BITS) {
-    signal input lat; // Latitude
-    signal input lng; // Longitude
-    signal input bits; // Number of bits of precision
-    signal output hash[MAX_BITS]; // Geohash with specified precision
-    
-    // First encode to full 64-bit hash
-    component encoder = EncodeInt();
-    encoder.lat <== lat;
-    encoder.lng <== lng;
-    
-    component lessThan[MAX_BITS];
-    // Use a fixed loop based on the template parameter
-    for (var i = 0; i < MAX_BITS; i++) {
-        // Create a component to check if i < bits
-        lessThan[i] = LessThan(8);
-        lessThan[i].in[0] <== i;
-        lessThan[i].in[1] <== bits;
-        
-        // Use the result to conditionally assign values
-        hash[i] <== lessThan[i].out * encoder.hash[i];
-    }
-}
-
-// ---- Decoding Functions ----
-
-// Decode a 32-bit value to latitude
-template DecodeLatitude() {
-    signal input encoded;  // 32-bit encoded value
-    signal output lat;     // Latitude (-90 to 90)
-    
-    // Use witness computation for division
-    signal normalized <-- encoded / 4294967296;
-    
-    // Add constraint to ensure normalized is correct
-    encoded === normalized * 4294967296;
-    
-    // Convert to latitude range
-    lat <== normalized * 180 - 90;
-}
-
-// Decode a 32-bit value to longitude
-template DecodeLongitude() {
-    signal input encoded;  // 32-bit encoded value
-    signal output lng;     // Longitude (-180 to 180)
-    
-    // Use witness computation for division
-    signal normalized <-- encoded / 4294967296;
-    
-    // Add constraint to ensure normalized is correct
-    encoded === normalized * 4294967296;
-    
-    // Convert to longitude range
-    lng <== normalized * 360 - 180;
-}
-
-// Decode a geohash to latitude and longitude
-template DecodeInt() {
-    signal input hash[64]; // 64-bit geohash
-    signal output lat; // Latitude
-    signal output lng; // Longitude
-    
-    // Deinterleave the bits
-    component deinterleaver = Deinterleave();
-    deinterleaver.X <== hash;
-    
-    // Convert bit arrays back to numbers
-    component latBits = Bits2Num(32);
-    latBits.in <== deinterleaver.even;
-    
-    component lngBits = Bits2Num(32);
-    lngBits.in <== deinterleaver.odd;
-    
-    // Decode the values
-    component decLat = DecodeLatitude();
-    decLat.encoded <== latBits.out;
-    
-    component decLng = DecodeLongitude();
-    decLng.encoded <== lngBits.out;
-    
-    // Set outputs
-    lat <== decLat.lat;
-    lng <== decLng.lng;
-}
-
-// ---- Scaled Input Handling ----
-
-// Handle scaled inputs for floating-point values
-template EncodeIntWithPrecisionScaled(MAX_BITS) {
-    signal input lat;        // Scaled latitude (integer)
-    signal input lng;        // Scaled longitude (integer)
-    signal input bits;       // Number of bits of precision
-    signal input scale_factor; // Scaling factor used
-    signal output hash[MAX_BITS]; // Geohash with specified precision
-    
-    // Descale the inputs
-    signal lat_descaled <-- lat / scale_factor;
-    signal lng_descaled <-- lng / scale_factor;
-    
-    // Ensure the descaling is correct
-    lat === lat_descaled * scale_factor;
-    lng === lng_descaled * scale_factor;
-    
-    // Use the original template with descaled values
-    component encoder = EncodeIntWithPrecision(MAX_BITS);
-    encoder.lat <== lat_descaled;
-    encoder.lng <== lng_descaled;
-    encoder.bits <== bits;
-    
-    // Connect the output
-    hash <== encoder.hash;
-}
-
-// ---- Simple Neighbor Function ----
-
-// Corrected SimpleNeighbor template with declarations outside loops
-template SimpleNeighbor() {
+template Neighbor() {
     signal input hash[64];  // Input geohash bits
     signal input direction; // Direction (0-7): N, NE, E, SE, S, SW, W, NW
     signal output neighbor[64]; // Output neighbor geohash bits
+    signal output chars[12];    // Base32 character indices
     
-    // Direction components - defined outside any loops
+    // Direction components
     component isDir[8];
     for (var d = 0; d < 8; d++) {
         isDir[d] = IsEqual();
@@ -293,49 +121,39 @@ template SimpleNeighbor() {
         isDir[d].in[1] <== d;
     }
     
-    // XOR components for each bit - defined outside loops
-    component xors[64];
-    for (var i = 0; i < 64; i++) {
-        xors[i] = XOR();
+    // Deinterleave the hash
+    component deinterleaver = Deinterleave();
+    deinterleaver.X <== hash;
+    
+    // Convert deinterleaved bits to numbers
+    component latNum = Bits2Num(28);
+    component lngNum = Bits2Num(29);
+    
+    // Connect bits in MSB order
+    for (var i = 0; i < 28; i++) {
+        latNum.in[i] <== deinterleaver.even[27-i];  // Reverse to get MSB first
+    }
+    for (var i = 0; i < 29; i++) {
+        lngNum.in[i] <== deinterleaver.odd[28-i];   // Reverse to get MSB first
     }
     
-    // Signal arrays for direction components - defined outside loops
-    signal northComponent[64];
-    signal eastComponent[64];
-    signal southComponent[64];
-    signal westComponent[64];
-    signal flipBit[64];
+    // Calculate offsets
+    signal latOffset <== (isDir[0].out + isDir[1].out + isDir[7].out) * 1000000 -
+                        (isDir[3].out + isDir[4].out + isDir[5].out) * 1000000;
     
-    // Now process each bit
-    for (var i = 0; i < 64; i++) {
-        // North (0): Flip even bits (latitude) in range 44-50
-        var northMask = 0;
-        if (i % 2 == 0 && i >= 44 && i < 52) northMask = 1;
-        
-        // East (2): Flip odd bits (longitude) in range 45-51
-        var eastMask = 0;
-        if (i % 2 == 1 && i >= 45 && i < 53) eastMask = 1;
-        
-        // South (4): Flip even bits (latitude) in range 44-50
-        var southMask = 0;
-        if (i % 2 == 0 && i >= 44 && i < 52) southMask = 1;
-        
-        // West (6): Flip odd bits (longitude) in range 45-51
-        var westMask = 0;
-        if (i % 2 == 1 && i >= 45 && i < 53) westMask = 1;
-        
-        // Calculate the combined mask based on direction
-        northComponent[i] <== northMask * (isDir[0].out + isDir[1].out + isDir[7].out);
-        eastComponent[i] <== eastMask * (isDir[1].out + isDir[2].out + isDir[3].out);
-        southComponent[i] <== southMask * (isDir[3].out + isDir[4].out + isDir[5].out);
-        westComponent[i] <== westMask * (isDir[5].out + isDir[6].out + isDir[7].out);
-        
-        // Combine all components
-        flipBit[i] <== northComponent[i] + eastComponent[i] + southComponent[i] + westComponent[i];
-        
-        // Apply the XOR operation
-        xors[i].a <== hash[i];
-        xors[i].b <== flipBit[i];
-        neighbor[i] <== xors[i].out;
-    }
+    signal lngOffset <== (isDir[1].out + isDir[2].out + isDir[3].out) * 1000000 -
+                        (isDir[5].out + isDir[6].out + isDir[7].out) * 1000000;
+    
+    // Calculate new coordinates
+    signal newLat <== latNum.out + latOffset - 90000000;
+    signal newLng <== lngNum.out + lngOffset - 180000000;
+    
+    // Encode new coordinates
+    component encoder = Geohash(32);
+    encoder.lat <== newLat;
+    encoder.lng <== newLng;
+    
+    // Copy outputs
+    neighbor <== encoder.bits;
+    chars <== encoder.chars;
 }

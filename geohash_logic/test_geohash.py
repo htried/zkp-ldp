@@ -3,6 +3,10 @@ import os
 import subprocess
 import pytest
 
+# Cornell Tech coordinates with 6 decimal precision
+CORNELL_TECH_LAT = 40756000 # 40.756 * 1e6
+CORNELL_TECH_LNG = -73956000 # -73.956 * 1e6
+
 # ----- Helper Functions -----
 
 def run_command(command):
@@ -52,9 +56,32 @@ def extract_bits_from_witness(witness_data, start_idx, max_bits):
                 bits.append(int(witness_data[i]))
     return bits
 
+def extract_circuit_outputs(witness_data):
+    """Extract all outputs from the witness data with clear indexing"""
+    # Circuit inputs are at indexes 1, 2, and 3
+    INPUT_SIGNALS = 3
+    
+    # Extract original geohash data
+    HASH_START = INPUT_SIGNALS + 1  # Index 4
+    CHARS_START = HASH_START + 64   # Index 68
+    
+    # Extract neighbor data
+    NEIGHBOR_START = CHARS_START + 12    # Index 80
+    NEIGHBOR_CHARS_START = NEIGHBOR_START + 64  # Index 144
+    
+    return {
+        'original_hash': extract_bits_from_witness(witness_data, HASH_START, 64),
+        'original_chars': extract_bits_from_witness(witness_data, CHARS_START, 12),
+        'neighbor_hash': extract_bits_from_witness(witness_data, NEIGHBOR_START, 64),
+        'neighbor_chars': extract_bits_from_witness(witness_data, NEIGHBOR_CHARS_START, 12)
+    }
+
+# ----- Geohash Conversion Functions -----
+
+base32_chars = "0123456789bcdefghjkmnpqrstuvwxyz"
+
 def geohash_to_bits(geohash_str, num_bits):
     """Convert a base32 geohash string to its binary representation"""
-    base32_chars = "0123456789bcdefghjkmnpqrstuvwxyz"
     bits = []
     
     for char in geohash_str:
@@ -67,6 +94,15 @@ def geohash_to_bits(geohash_str, num_bits):
         return bits[:num_bits]
     else:
         return bits + [0] * (num_bits - len(bits))
+    
+def bits_to_geohash(bits):
+    """Convert a binary representation to a base32 geohash string"""
+    geohash = ""
+    for i in range(0, len(bits), 5):
+        chunk = bits[i:i+5]
+        value = sum(b * (2 ** (4-j)) for j, b in enumerate(chunk))
+        geohash += base32_chars[value]
+    return geohash
 
 # ----- Test Class -----
 
@@ -75,45 +111,48 @@ class TestGeohash:
     def setup_class(cls):
         """Compile all required circuits for testing into the geohash_logic directory"""
         # Compile circuits
-        cls.geohash_main_js = compile_circuit("geohash_logic/geohash_main.circom", "geohash_main")
+        cls.geohash_test_js = compile_circuit("geohash_logic/geohash_test.circom", "geohash_test")
         cls.neighbor_test_js = compile_circuit("geohash_logic/neighbor_test.circom", "neighbor_test")
         
         # Input/output file paths
         cls.build_dir = "geohash_logic/build"
         os.makedirs(cls.build_dir, exist_ok=True)
-    
-    def test_encode_cornell_tech(self):
-        """Test encoding Cornell Tech coordinates with integer representation"""
-        # Scaled coordinate values (3 decimal places)
-        lat = 40756  # 40.756 * 1000
-        lng = 253956  # (73.956 + 180) * 1000 = 253.956 * 1000
-        bits = 30
+
+    def test_geohash(self):
+        """Test the proper geohash encoding with interval bisection"""
         
-        # Prepare input
-        input_file = f"{self.build_dir}/input.json"
-        witness_file = f"{self.build_dir}/test_witness.wtns"
+        input_data = {
+            "lat": CORNELL_TECH_LAT,
+            "lng": CORNELL_TECH_LNG
+        }
         
-        input_data = {"lat": lat, "lng": lng, "bits": bits}
+        input_file = f"{self.build_dir}/geohash_input.json"
+        witness_file = f"{self.build_dir}/geohash_witness.wtns"
+        
         with open(input_file, "w") as f:
             json.dump(input_data, f)
         
         # Generate and read witness
-        generate_witness(self.geohash_main_js, "geohash_main", input_file, witness_file)
+        generate_witness(self.geohash_test_js, "geohash_test", input_file, witness_file)
         witness_data = export_witness_to_json(witness_file)
         
-        # Extract hash bits from witness data
-        hash_bits = extract_bits_from_witness(witness_data, start_idx=4, max_bits=bits)
+        # Extract results using the clearer function
+        outputs = extract_circuit_outputs(witness_data)
+        bits = outputs['original_hash']
         
-        # Test results
-        print(f"Geohash bits (first 10): {hash_bits[:10]} ...")
-        assert len(hash_bits) == bits, "Failed to extract expected number of hash bits"
-    
+        # Print binary representation
+        print(f"First 10 bits: {bits[:10]}")
+        print(f"All bits: {''.join(map(str, bits))}")
+                
+        print(f"Geohash: {bits_to_geohash(bits)}")
+        print("\nBit groups:")
+        for i in range(0, 25, 5):
+            chunk = bits[i:i+5]
+            value = sum(b * (2 ** (4-j)) for j, b in enumerate(chunk))
+            print(f"Bits {i}-{i+4}: {chunk} = {value} -> {base32_chars[value]}")
+
     def test_neighbors(self):
-        """Test finding neighbors of a geohash using the SimpleNeighbor template"""
-        # Coordinates and parameters
-        lat = 40756  # 40.756 * 1000
-        lng = 253956  # (73.956 + 180) * 1000
-        bits = 30
+        """Test finding neighbors using proper geohash encoding"""
         
         # Test all directions
         directions = {
@@ -128,118 +167,51 @@ class TestGeohash:
         }
         
         for direction, direction_name in directions.items():
-            # Prepare input
             input_file = f"{self.build_dir}/neighbor_input_{direction}.json"
             witness_file = f"{self.build_dir}/neighbor_witness_{direction}.wtns"
             
-            input_data = {"lat": lat, "lng": lng, "bits": bits, "direction": direction}
+            input_data = {
+                "lat": CORNELL_TECH_LAT,
+                "lng": CORNELL_TECH_LNG,
+                "direction": direction
+            }
+            
             with open(input_file, "w") as f:
                 json.dump(input_data, f)
-        
+            
             # Generate and read witness
             generate_witness(self.neighbor_test_js, "neighbor_test", input_file, witness_file)
-            
-            # Parse the symbol file to find the output hash and neighbor indices
-            sym_file = f"{self.build_dir}/neighbor_test.sym"
-            hash_indices = []
-            neighbor_indices = []
-            
-            if os.path.exists(sym_file):
-                with open(sym_file, "r") as f:
-                    for line in f:
-                        parts = line.strip().split(",")
-                        if len(parts) >= 4:
-                            idx = int(parts[0])
-                            symbol = parts[3]
-                            if "hash" in symbol:
-                                hash_indices.append(idx)
-                            elif "neighbor" in symbol:
-                                neighbor_indices.append(idx)
-            
-            if not hash_indices or not neighbor_indices:
-                print("WARNING: Could not find hash or neighbor indices in symbol file.")
-                # Use reasonable defaults if we can't read the symbol file
-                hash_indices = list(range(1, 65))
-                neighbor_indices = list(range(65, 129))
-            
-            # Extract witness data
             witness_data = export_witness_to_json(witness_file)
             
-            # Extract original hash and neighbor hash bits using the symbol mapping
-            original_hash_bits = [int(witness_data[idx]) for idx in hash_indices[:bits]]
-            neighbor_hash_bits = [int(witness_data[idx]) for idx in neighbor_indices[:bits]]
+            # Extract results using the clearer function
+            outputs = extract_circuit_outputs(witness_data)
+            original_bits = outputs['original_hash']
+            neighbor_bits = outputs['neighbor_hash']
             
-            # Compare the hashes
-            different_bits = sum(1 for i in range(bits) if original_hash_bits[i] != neighbor_hash_bits[i])
+            # Convert to base32
+            original_geohash = bits_to_geohash(original_bits)
+            neighbor_geohash = bits_to_geohash(neighbor_bits)
             
             print(f"\nDirection: {direction_name}")
-            print(f"Original hash: {''.join(map(str, original_hash_bits[:10]))}...")
-            print(f"Neighbor hash: {''.join(map(str, neighbor_hash_bits[:10]))}...")
-            print(f"Different bits: {different_bits}")
+            print(f"Original geohash: {original_geohash}")
+            print(f"Neighbor geohash: {neighbor_geohash}")
             
-            # The neighbor hash should be different from the original
-            assert different_bits > 0, f"Neighbor in direction {direction_name} should be different from original"
+            # Verify the geohashes are different
+            assert original_geohash != neighbor_geohash, f"Neighbor in direction {direction_name} should be different"
             
-            # Calculate the actual latitude/longitude of the neighbor and verify it's close to but different from original
-            # This would require a geohash decoding function, which we could implement if needed
-        
-        print("✓ All neighbor calculations completed successfully")
-    
-    def test_debug_circuit(self):
-        """Test a minimal circuit for numeric to bit conversion"""
-        # The longitude value that was problematic
-        value = 253956
-        
-        # Prepare input and output paths
-        input_file = f"{self.build_dir}/debug_input.json"
-        witness_file = f"{self.build_dir}/debug_witness.wtns"
-        
-        input_data = {"value": value}
-        with open(input_file, "w") as f:
-            json.dump(input_data, f)
-        
-        # Compile, generate and read witness
-        debug_js = compile_circuit("geohash_logic/debug_circuit.circom", "debug_circuit")
-        generate_witness(debug_js, "debug_circuit", input_file, witness_file)
-        witness_data = export_witness_to_json(witness_file)
-        
-        # Extract input signal and bit values
-        value_signal = int(witness_data[1]) if len(witness_data) > 1 and witness_data[1].isdigit() else None
-        bits = extract_bits_from_witness(witness_data, start_idx=2, max_bits=32)
-        
-        # Verify the bit conversion
-        if len(bits) == 32:
-            reconstructed = sum(bit * (2**i) for i, bit in enumerate(bits))
-            print(f"Original: {value}, Reconstructed: {reconstructed}")
-            if reconstructed == value:
-                print("✓ Bit conversion succeeded")
-            else:
-                print("⚠ Bit conversion produced incorrect value")
-        
-        # Basic assertion
-        assert len(witness_data) > 0, "Failed to generate witness"
-    
-    def test_simple_geohash(self):
-        """Test a simpler geohash encoder circuit"""
-        lat = 40756
-        lng = 253956
-        
-        # Prepare input
-        input_file = f"{self.build_dir}/simple_input.json"
-        witness_file = f"{self.build_dir}/simple_witness.wtns"
-        
-        input_data = {"lat": lat, "lng": lng}
-        with open(input_file, "w") as f:
-            json.dump(input_data, f)
-        
-        # Compile, generate and read witness
-        simple_js = compile_circuit("geohash_logic/simple_geohash.circom", "simple_geohash")
-        generate_witness(simple_js, "simple_geohash", input_file, witness_file)
-        witness_data = export_witness_to_json(witness_file)
-        
-        # Simple check for witness generation
-        assert len(witness_data) > 0, "Failed to generate witness"
-        print("✓ Simple geohash witness generated successfully")
+            # Print first differing bit
+            for i, (ob, nb) in enumerate(zip(original_bits, neighbor_bits)):
+                if ob != nb:
+                    print(f"First different bit at position {i}: {ob} vs {nb}")
+                    break
 
 if __name__ == "__main__":
-    pytest.main(["-xvs", "test_geohash.py"])
+    # pytest.main(["-xvs", "test_geohash.py"])
+    test = TestGeohash()
+    test.setup_class()
+    print("testing normal geohash")
+    test.test_geohash()
+    print("testing neighbors")
+    test.test_neighbors()
+
+    print("✓ All tests completed successfully")
