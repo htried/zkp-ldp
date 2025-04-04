@@ -3,9 +3,12 @@ import os
 import subprocess
 import pytest
 
-# Cornell Tech coordinates with 6 decimal precision
-CORNELL_TECH_LAT = 40756000 # 40.756 * 1e6
-CORNELL_TECH_LNG = -73956000 # -73.956 * 1e6
+# Cornell Tech coordinates normalized and scaled by 1e6
+CORNELL_TECH_LAT = 40.756
+CORNELL_TECH_LNG = -73.956
+
+CORNELL_TECH_LAT_BITS = int((40.756 + 90) * 1e6)
+CORNELL_TECH_LNG_BITS = int((-73.956 + 180) * 1e6)
 
 # ----- Helper Functions -----
 
@@ -104,6 +107,32 @@ def bits_to_geohash(bits):
         geohash += base32_chars[value]
     return geohash
 
+def geohash_bits_to_coords(bits):
+    """Convert geohash bits to latitude and longitude coordinates"""
+    # Deinterleave bits - odd bits are lat, even bits are lng
+    lng_bits = bits[::2][:29]   # even indices are longitude
+    lat_bits = bits[1::2][:28]  # odd indices are latitude
+        
+    # Shift bits to make sure things line up correctly (TODO: figure out why this is needed)
+    lat_bits = [0, 1] + lat_bits[:-2]
+    lng_bits = lng_bits[-1:] + lng_bits[:-1]
+    
+    # Convert to decimal using power series with bits ordered MSB first
+    lat_decimal = int(sum(lat_bits[i] * (2 ** (27-i)) for i in range(28)))
+    lng_decimal = int(sum(lng_bits[i] * (2 ** (28-i)) for i in range(29)))
+    
+    # Convert back to original coordinates
+    lat = lat_decimal / 1e6 - 90
+    lng = lng_decimal / 1e6 - 180
+    
+    # print("\nDecoding steps:")
+    # print(f"Input lat binary:      {bin(CORNELL_TECH_LAT_BITS)[2:].zfill(28)}")
+    # print(f"Shifted lat bits:      {''.join(map(str, lat_bits))}")
+    # print(f"Input lat decimal:     {CORNELL_TECH_LAT_BITS}")
+    # print(f"Output lat decimal:    {lat_decimal}")
+    
+    return lat, lng
+
 # ----- Test Class -----
 
 class TestGeohash:
@@ -122,8 +151,8 @@ class TestGeohash:
         """Test the proper geohash encoding with interval bisection"""
         
         input_data = {
-            "lat": CORNELL_TECH_LAT,
-            "lng": CORNELL_TECH_LNG
+            "lat": CORNELL_TECH_LAT_BITS,
+            "lng": CORNELL_TECH_LNG_BITS
         }
         
         input_file = f"{self.build_dir}/geohash_input.json"
@@ -143,13 +172,12 @@ class TestGeohash:
         # Print binary representation
         print(f"First 10 bits: {bits[:10]}")
         print(f"All bits: {''.join(map(str, bits))}")
-                
         print(f"Geohash: {bits_to_geohash(bits)}")
-        print("\nBit groups:")
-        for i in range(0, 25, 5):
-            chunk = bits[i:i+5]
-            value = sum(b * (2 ** (4-j)) for j, b in enumerate(chunk))
-            print(f"Bits {i}-{i+4}: {chunk} = {value} -> {base32_chars[value]}")
+
+        # Convert bits to coordinates
+        lat, lng = geohash_bits_to_coords(bits)
+        print(f"Cornell Tech coordinates: ({CORNELL_TECH_LAT:.6f}, {CORNELL_TECH_LNG:.6f})")
+        print(f"Geohash coordinates: ({lat:.6f}, {lng:.6f})")
 
     def test_neighbors(self):
         """Test finding neighbors using proper geohash encoding"""
@@ -171,8 +199,8 @@ class TestGeohash:
             witness_file = f"{self.build_dir}/neighbor_witness_{direction}.wtns"
             
             input_data = {
-                "lat": CORNELL_TECH_LAT,
-                "lng": CORNELL_TECH_LNG,
+                "lat": CORNELL_TECH_LAT_BITS,
+                "lng": CORNELL_TECH_LNG_BITS,
                 "direction": direction
             }
             
@@ -192,9 +220,14 @@ class TestGeohash:
             original_geohash = bits_to_geohash(original_bits)
             neighbor_geohash = bits_to_geohash(neighbor_bits)
             
+            # Convert to coordinates
+            original_lat, original_lng = geohash_bits_to_coords(original_bits)
+            neighbor_lat, neighbor_lng = geohash_bits_to_coords(neighbor_bits)
+            
             print(f"\nDirection: {direction_name}")
-            print(f"Original geohash: {original_geohash}")
-            print(f"Neighbor geohash: {neighbor_geohash}")
+            print(f"Original geohash: {original_geohash} ({original_lat:.6f}, {original_lng:.6f})")
+            print(f"Neighbor geohash: {neighbor_geohash} ({neighbor_lat:.6f}, {neighbor_lng:.6f})")
+            print(f"Coordinate difference: ({(neighbor_lat - original_lat):.6f}, {(neighbor_lng - original_lng):.6f})")
             
             # Verify the geohashes are different
             assert original_geohash != neighbor_geohash, f"Neighbor in direction {direction_name} should be different"
@@ -209,9 +242,9 @@ if __name__ == "__main__":
     # pytest.main(["-xvs", "test_geohash.py"])
     test = TestGeohash()
     test.setup_class()
-    print("testing normal geohash")
+    print(f"\n{'=' * 22}\ntesting normal geohash\n{'=' * 22}\n")
     test.test_geohash()
-    print("testing neighbors")
+    print(f"\n{'=' * 17}\ntesting neighbors\n{'=' * 17}\n")
     test.test_neighbors()
 
     print("✓ All tests completed successfully")
