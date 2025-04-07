@@ -5,11 +5,19 @@ import time
 import shutil
 
 # Cornell Tech coordinates normalized and scaled by 1e6
-CORNELL_TECH_LAT = 40.756
-CORNELL_TECH_LNG = -73.956
+TEST_LAT = 40.756
+TEST_LNG = -73.956
 
-CORNELL_TECH_LAT_BITS = int((CORNELL_TECH_LAT + 90) * 1e6)
-CORNELL_TECH_LNG_BITS = int((CORNELL_TECH_LNG + 180) * 1e6)
+# Test coordinates near longitude -180 to try dealing with wrap-around
+# TEST_LAT = 40.756
+# TEST_LNG = -179.999
+
+# Test coordinates near longitude 180 to try dealing with wrap-around
+# TEST_LAT = 40.756
+# TEST_LNG = 179.999
+
+TEST_LAT_BITS = int((TEST_LAT + 90) * 1e6)
+TEST_LNG_BITS = int((TEST_LNG + 180) * 1e6)
 
 # ----- Helper Functions -----
 
@@ -40,7 +48,7 @@ def compile_circuit(circuit_path, circuit_name):
     
     # Compile with output to build directory
     command = f"circom {circuit_path} --output {build_dir} -l geohash_logic/circomlib --r1cs --wasm --sym --c"
-    output = run_command(command)
+    _ = run_command(command)
 
     return f"{build_dir}/{circuit_name}_js"
 
@@ -74,8 +82,8 @@ def extract_circuit_outputs(witness_data):
     lng_value = int(witness_data[-1])
     
     print(f"\nActual input values from witness:")
-    print(f"Lat decimal: {lat_value} (expected: {CORNELL_TECH_LAT_BITS})")
-    print(f"Lng decimal: {lng_value} (expected: {CORNELL_TECH_LNG_BITS})")
+    print(f"Lat decimal: {lat_value} (expected: {TEST_LAT_BITS})")
+    print(f"Lng decimal: {lng_value} (expected: {TEST_LNG_BITS})")
     
     # Raw bits output should be somewhere in witness - let's calculate them directly
     # from the confirmed input values 
@@ -206,6 +214,8 @@ def geohash_bits_to_coords(bits):
     # Convert to decimal using MSB order
     lat_decimal = sum(int(lat_bits[i]) * (2 ** (31-i)) for i in range(32))
     lng_decimal = sum(int(lng_bits[i]) * (2 ** (31-i)) for i in range(32))
+    print(f"lat_decimal: {lat_decimal}")
+    print(f"lng_decimal: {lng_decimal}")
     
     # Convert back to original coordinates
     lat = lat_decimal / 1e6 - 90
@@ -247,8 +257,8 @@ class TestGeohash:
                 
         # Use the correct input format with named fields
         input_data = {
-            "lat": CORNELL_TECH_LAT_BITS,
-            "lng": CORNELL_TECH_LNG_BITS
+            "lat": TEST_LAT_BITS,
+            "lng": TEST_LNG_BITS
         }
         
         # Use timestamp for unique filenames
@@ -278,8 +288,8 @@ class TestGeohash:
         
         # Print debug information
         print("\nInput binary representations:")
-        print(f"Input lat binary:  {bin(CORNELL_TECH_LAT_BITS)[2:].zfill(32)}")
-        print(f"Input lng binary:  {bin(CORNELL_TECH_LNG_BITS)[2:].zfill(32)}")
+        print(f"Input lat binary:  {bin(TEST_LAT_BITS)[2:].zfill(32)}")
+        print(f"Input lng binary:  {bin(TEST_LNG_BITS)[2:].zfill(32)}")
         
         print(f"\nFinal output:")
         print(f"First 10 bits: {interleaved_bits[:10]}")
@@ -309,8 +319,8 @@ class TestGeohash:
             
             # IMPORTANT: Use the correct input format
             input_data = {
-                "lat": CORNELL_TECH_LAT_BITS,
-                "lng": CORNELL_TECH_LNG_BITS,
+                "lat": TEST_LAT_BITS,
+                "lng": TEST_LNG_BITS,
                 "direction": direction
             }
             

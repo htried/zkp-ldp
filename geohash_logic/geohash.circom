@@ -108,41 +108,31 @@ template Neighbor() {
     
     // Calculate potential new coordinates
     signal rawNewLat <== latNum.out + latOffset;
+    
+    // For longitude wrapping, handle each case separately
     signal rawNewLng <== lngNum.out + lngOffset;
-    
-    // Properly handle latitude bounds (0 to 180000000)
-    component latUnderflow = LessThan(32);  // Check if < 0
-    latUnderflow.in[0] <== rawNewLat;
-    latUnderflow.in[1] <== 0;
-    
-    component latOverflow = LessThan(32);   // Check if > 180000000
-    latOverflow.in[0] <== 180000000;
-    latOverflow.in[1] <== rawNewLat;
-    
-    // Adjust latitude based on underflow/overflow
-    signal newLat <== 
-        latUnderflow.out * 0 + 
-        latOverflow.out * 180000000 +
-        (1 - latUnderflow.out - latOverflow.out) * rawNewLat;
-    
-    // Properly handle longitude wrapping (0 to 360000000)
-    component lngUnderflow = LessThan(32);  // Check if < 0
-    lngUnderflow.in[0] <== rawNewLng;
-    lngUnderflow.in[1] <== 0;
-    
-    component lngOverflow = LessThan(32);   // Check if > 360000000
-    lngOverflow.in[0] <== 360000000;
-    lngOverflow.in[1] <== rawNewLng;
-    
-    // Calculate wrapped longitude
-    signal lngUnderflowAdjust <== lngUnderflow.out * 360000000;
-    signal lngOverflowAdjust <== lngOverflow.out * 360000000;
-    
-    signal newLng <== rawNewLng + lngUnderflowAdjust - lngOverflowAdjust;
+
+    // Check for underflow (result < 0)
+    component isUnderflow = LessThan(32);
+    isUnderflow.in[0] <== rawNewLng;
+    isUnderflow.in[1] <== 0;
+
+    // Check for overflow (result >= 360000000)
+    component isOverflow = GreaterEqThan(32);
+    isOverflow.in[0] <== rawNewLng;
+    isOverflow.in[1] <== 360000000;
+
+    // Calculate each potential outcome separately
+    signal wrapPositive <== rawNewLng + 360000000;
+    signal wrapNegative <== rawNewLng - 360000000;
+
+    // Apply wrapping only when needed
+    signal tempLng <== rawNewLng + (isUnderflow.out * 360000000);
+    signal newLng <== tempLng - (isOverflow.out * 360000000);
     
     // Encode new coordinates
     component encoder = Geohash(32);
-    encoder.lat <== newLat;
+    encoder.lat <== rawNewLat;
     encoder.lng <== newLng;
     
     // Copy outputs
