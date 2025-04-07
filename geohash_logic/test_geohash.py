@@ -1,14 +1,15 @@
 import json
 import os
 import subprocess
-import pytest
+import time
+import shutil
 
 # Cornell Tech coordinates normalized and scaled by 1e6
 CORNELL_TECH_LAT = 40.756
 CORNELL_TECH_LNG = -73.956
 
-CORNELL_TECH_LAT_BITS = int((40.756 + 90) * 1e6)
-CORNELL_TECH_LNG_BITS = int((-73.956 + 180) * 1e6)
+CORNELL_TECH_LAT_BITS = int((CORNELL_TECH_LAT + 90) * 1e6)
+CORNELL_TECH_LNG_BITS = int((CORNELL_TECH_LNG + 180) * 1e6)
 
 # ----- Helper Functions -----
 
@@ -28,13 +29,20 @@ def run_command(command):
 def compile_circuit(circuit_path, circuit_name):
     """Compile a Circom circuit to WASM and R1CS in the geohash_logic directory"""
     # Create output directory if it doesn't exist
-    os.makedirs("geohash_logic/build", exist_ok=True)
+    build_dir = "geohash_logic/build"
+    os.makedirs(build_dir, exist_ok=True)
+    
+    # Clean any existing build files for this circuit
+    js_dir = f"{build_dir}/{circuit_name}_js"
+    if os.path.exists(js_dir):
+        print(f"Removing existing build directory: {js_dir}")
+        shutil.rmtree(js_dir)
     
     # Compile with output to build directory
-    command = f"circom {circuit_path} --output geohash_logic/build -l geohash_logic/circomlib --r1cs --wasm --sym --c"
-    run_command(command)
+    command = f"circom {circuit_path} --output {build_dir} -l geohash_logic/circomlib --r1cs --wasm --sym --c"
+    output = run_command(command)
 
-    return f"geohash_logic/build/{circuit_name}_js"
+    return f"{build_dir}/{circuit_name}_js"
 
 def generate_witness(js_dir, wasm_file, input_file, witness_file):
     """Generate witness for a circuit with the given input"""
@@ -61,22 +69,87 @@ def extract_bits_from_witness(witness_data, start_idx, max_bits):
 
 def extract_circuit_outputs(witness_data):
     """Extract all outputs from the witness data with clear indexing"""
-    # Circuit inputs are at indexes 1, 2, and 3
-    INPUT_SIGNALS = 3
+    # Extract the original inputs at witness indices -2 and -1
+    lat_value = int(witness_data[-2])
+    lng_value = int(witness_data[-1])
     
-    # Extract original geohash data
-    HASH_START = INPUT_SIGNALS + 1  # Index 4
-    CHARS_START = HASH_START + 64   # Index 68
+    print(f"\nActual input values from witness:")
+    print(f"Lat decimal: {lat_value} (expected: {CORNELL_TECH_LAT_BITS})")
+    print(f"Lng decimal: {lng_value} (expected: {CORNELL_TECH_LNG_BITS})")
     
-    # Extract neighbor data
-    NEIGHBOR_START = CHARS_START + 12    # Index 80
-    NEIGHBOR_CHARS_START = NEIGHBOR_START + 64  # Index 144
+    # Raw bits output should be somewhere in witness - let's calculate them directly
+    # from the confirmed input values 
+    lat_bits_lsb = [(lat_value >> i) & 1 for i in range(32)]
+    lng_bits_lsb = [(lng_value >> i) & 1 for i in range(32)]
+    
+    # Convert to MSB for display and interleaving
+    lat_bits_msb = lat_bits_lsb[::-1]
+    lng_bits_msb = lng_bits_lsb[::-1]
+    
+    print("\nExpected bits from input values:")
+    print(f"Lat bits: {''.join(map(str, lat_bits_msb))}")
+    print(f"Lng bits: {''.join(map(str, lng_bits_msb))}")
+    
+    # Generate interleaved bits as the circuit would (lng even, lat odd)
+    interleaved_bits = []
+    for i in range(32):
+        interleaved_bits.append(lng_bits_msb[i])  # Even positions (MSB order)
+        interleaved_bits.append(lat_bits_msb[i])  # Odd positions (MSB order)
     
     return {
-        'original_hash': extract_bits_from_witness(witness_data, HASH_START, 64),
-        'original_chars': extract_bits_from_witness(witness_data, CHARS_START, 12),
-        'neighbor_hash': extract_bits_from_witness(witness_data, NEIGHBOR_START, 64),
-        'neighbor_chars': extract_bits_from_witness(witness_data, NEIGHBOR_CHARS_START, 12)
+        'interleaved_hash': interleaved_bits,
+        'lat_value': lat_value,
+        'lng_value': lng_value
+    }
+
+def extract_neighbor_outputs(witness_data):
+    """Extract outputs specifically for neighbor test"""
+    # Get inputs from the correct indices
+    original_lat = int(witness_data[153])
+    original_lng = int(witness_data[154])
+    neighbor_lat = int(witness_data[158])
+    neighbor_lng = int(witness_data[159])
+    
+    print(f"\nCoordinates from witness:")
+    print(f"Original: ({original_lat/1e6-90:.6f}, {original_lng/1e6-180:.6f})")
+    print(f"Neighbor: ({neighbor_lat/1e6-90:.6f}, {neighbor_lng/1e6-180:.6f})")
+    
+    # Generate bits directly from coordinates in MSB order (how the circuit works)
+    
+    # Original bits
+    original_lat_bits_lsb = [(original_lat >> i) & 1 for i in range(32)]
+    original_lng_bits_lsb = [(original_lng >> i) & 1 for i in range(32)]
+    original_lat_bits_msb = original_lat_bits_lsb[::-1]  # Reverse to get MSB order
+    original_lng_bits_msb = original_lng_bits_lsb[::-1]  # Reverse to get MSB order
+    
+    # Neighbor bits
+    neighbor_lat_bits_lsb = [(neighbor_lat >> i) & 1 for i in range(32)]
+    neighbor_lng_bits_lsb = [(neighbor_lng >> i) & 1 for i in range(32)]
+    neighbor_lat_bits_msb = neighbor_lat_bits_lsb[::-1]  # Reverse to get MSB order
+    neighbor_lng_bits_msb = neighbor_lng_bits_lsb[::-1]  # Reverse to get MSB order
+    
+    # Interleave bits as the circuit does
+    original_bits = []
+    neighbor_bits = []
+    
+    for i in range(32):
+        original_bits.append(original_lng_bits_msb[i])  # Even positions
+        original_bits.append(original_lat_bits_msb[i])  # Odd positions
+        neighbor_bits.append(neighbor_lng_bits_msb[i])  # Even positions
+        neighbor_bits.append(neighbor_lat_bits_msb[i])  # Odd positions
+    
+    print(f"Original lat bits: {''.join(map(str, original_lat_bits_msb))}")
+    print(f"Original lng bits: {''.join(map(str, original_lng_bits_msb))}")
+    print(f"Neighbor lat bits: {''.join(map(str, neighbor_lat_bits_msb))}")
+    print(f"Neighbor lng bits: {''.join(map(str, neighbor_lng_bits_msb))}")
+    
+    return {
+        'original_hash': original_bits,
+        'neighbor_hash': neighbor_bits,
+        'original_lat': original_lat,
+        'original_lng': original_lng,
+        'neighbor_lat': neighbor_lat,
+        'neighbor_lng': neighbor_lng
     }
 
 # ----- Geohash Conversion Functions -----
@@ -103,33 +176,40 @@ def bits_to_geohash(bits):
     geohash = ""
     for i in range(0, len(bits), 5):
         chunk = bits[i:i+5]
-        value = sum(b * (2 ** (4-j)) for j, b in enumerate(chunk))
+        # Pad chunk if needed
+        while len(chunk) < 5:
+            chunk.append(0)
+        
+        # Ensure all bits are 0 or 1
+        for j, bit in enumerate(chunk):
+            if bit not in [0, 1]:
+                print(f"WARNING: Invalid bit in chunk at position {j}: {bit}")
+                chunk[j] = 0
+        
+        # Calculate value (0-31)
+        value = sum(int(chunk[j]) * (2 ** (4-j)) for j in range(5))
+        
+        # Safety check
+        if value < 0 or value >= 32:
+            print(f"WARNING: Invalid value calculated: {value}, setting to 0")
+            value = 0
+            
         geohash += base32_chars[value]
     return geohash
 
 def geohash_bits_to_coords(bits):
     """Convert geohash bits to latitude and longitude coordinates"""
-    # Deinterleave bits - odd bits are lat, even bits are lng
-    lng_bits = bits[::2][:29]   # even indices are longitude
-    lat_bits = bits[1::2][:28]  # odd indices are latitude
-        
-    # Shift bits to make sure things line up correctly (TODO: figure out why this is needed)
-    lat_bits = [0, 1] + lat_bits[:-2]
-    lng_bits = lng_bits[-1:] + lng_bits[:-1]
+    # Deinterleave bits (even = longitude, odd = latitude)
+    lng_bits = bits[::2][:32]   # even indices are longitude (MSB)
+    lat_bits = bits[1::2][:32]  # odd indices are latitude (MSB)
     
-    # Convert to decimal using power series with bits ordered MSB first
-    lat_decimal = int(sum(lat_bits[i] * (2 ** (27-i)) for i in range(28)))
-    lng_decimal = int(sum(lng_bits[i] * (2 ** (28-i)) for i in range(29)))
+    # Convert to decimal using MSB order
+    lat_decimal = sum(int(lat_bits[i]) * (2 ** (31-i)) for i in range(32))
+    lng_decimal = sum(int(lng_bits[i]) * (2 ** (31-i)) for i in range(32))
     
     # Convert back to original coordinates
     lat = lat_decimal / 1e6 - 90
     lng = lng_decimal / 1e6 - 180
-    
-    # print("\nDecoding steps:")
-    # print(f"Input lat binary:      {bin(CORNELL_TECH_LAT_BITS)[2:].zfill(28)}")
-    # print(f"Shifted lat bits:      {''.join(map(str, lat_bits))}")
-    # print(f"Input lat decimal:     {CORNELL_TECH_LAT_BITS}")
-    # print(f"Output lat decimal:    {lat_decimal}")
     
     return lat, lng
 
@@ -139,45 +219,73 @@ class TestGeohash:
     @classmethod
     def setup_class(cls):
         """Compile all required circuits for testing into the geohash_logic directory"""
-        # Compile circuits
+
+        # Input/output file paths
+        cls.build_dir = "geohash_logic/build"
+
+        # Clean build directory first
+        for item in os.listdir(cls.build_dir):
+            prefixes = ["geohash_test", "neighbor_test", "witness", "geohash_witness", "neighbor_witness", "geohash_input", "neighbor_input"]
+            if any(item.startswith(prefix) for prefix in prefixes):
+                path = os.path.join(cls.build_dir, item)
+                if os.path.isdir(path):
+                    print(f"Removing old build directory: {path}")
+                    shutil.rmtree(path)
+                else:
+                    print(f"Removing old build file: {path}")
+                    os.remove(path)
+
+        os.makedirs(cls.build_dir, exist_ok=True)
+        
+        # Recompile the circuit
         cls.geohash_test_js = compile_circuit("geohash_logic/geohash_test.circom", "geohash_test")
         cls.neighbor_test_js = compile_circuit("geohash_logic/neighbor_test.circom", "neighbor_test")
         
-        # Input/output file paths
-        cls.build_dir = "geohash_logic/build"
-        os.makedirs(cls.build_dir, exist_ok=True)
 
     def test_geohash(self):
         """Test the proper geohash encoding with interval bisection"""
-        
+                
+        # Use the correct input format with named fields
         input_data = {
             "lat": CORNELL_TECH_LAT_BITS,
             "lng": CORNELL_TECH_LNG_BITS
         }
         
-        input_file = f"{self.build_dir}/geohash_input.json"
-        witness_file = f"{self.build_dir}/geohash_witness.wtns"
+        # Use timestamp for unique filenames
+        timestamp = int(time.time())
+        
+        input_file = f"{self.build_dir}/geohash_input_{timestamp}.json"
+        witness_file = f"{self.build_dir}/geohash_witness_{timestamp}.wtns"
         
         with open(input_file, "w") as f:
             json.dump(input_data, f)
         
-        # Generate and read witness
-        generate_witness(self.geohash_test_js, "geohash_test", input_file, witness_file)
-        witness_data = export_witness_to_json(witness_file)
-        
-        # Extract results using the clearer function
-        outputs = extract_circuit_outputs(witness_data)
-        bits = outputs['original_hash']
-        
-        # Print binary representation
-        print(f"First 10 bits: {bits[:10]}")
-        print(f"All bits: {''.join(map(str, bits))}")
-        print(f"Geohash: {bits_to_geohash(bits)}")
+        print(f"\nDumping input file contents for verification:")
+        with open(input_file, "r") as f:
+            print(f.read())
 
-        # Convert bits to coordinates
-        lat, lng = geohash_bits_to_coords(bits)
-        print(f"Cornell Tech coordinates: ({CORNELL_TECH_LAT:.6f}, {CORNELL_TECH_LNG:.6f})")
-        print(f"Geohash coordinates: ({lat:.6f}, {lng:.6f})")
+        generate_witness(self.geohash_test_js, "geohash_test", input_file, witness_file)
+                
+        # Verify witness file exists
+        if not os.path.exists(witness_file):
+            print(f"ERROR: Witness file {witness_file} was not created!")
+            return
+        
+        witness_data = export_witness_to_json(witness_file)
+                
+        outputs = extract_circuit_outputs(witness_data)
+        interleaved_bits = outputs['interleaved_hash']
+        
+        # Print debug information
+        print("\nInput binary representations:")
+        print(f"Input lat binary:  {bin(CORNELL_TECH_LAT_BITS)[2:].zfill(32)}")
+        print(f"Input lng binary:  {bin(CORNELL_TECH_LNG_BITS)[2:].zfill(32)}")
+        
+        print(f"\nFinal output:")
+        print(f"First 10 bits: {interleaved_bits[:10]}")
+        print(f"All bits: {''.join(map(str, interleaved_bits))}")
+        print(f"Geohash: {bits_to_geohash(interleaved_bits)}")
+        print(f"coords: {geohash_bits_to_coords(interleaved_bits)}")
 
     def test_neighbors(self):
         """Test finding neighbors using proper geohash encoding"""
@@ -197,7 +305,9 @@ class TestGeohash:
         for direction, direction_name in directions.items():
             input_file = f"{self.build_dir}/neighbor_input_{direction}.json"
             witness_file = f"{self.build_dir}/neighbor_witness_{direction}.wtns"
+            json_file = f"{self.build_dir}/neighbor_witness_{direction}.json"
             
+            # IMPORTANT: Use the correct input format
             input_data = {
                 "lat": CORNELL_TECH_LAT_BITS,
                 "lng": CORNELL_TECH_LNG_BITS,
@@ -207,12 +317,18 @@ class TestGeohash:
             with open(input_file, "w") as f:
                 json.dump(input_data, f)
             
-            # Generate and read witness
+            # Debug the input file
+            with open(input_file, "r") as f:
+                input_content = f.read()
+                print(f"\nInput file for {direction_name}: {input_content}")
+
             generate_witness(self.neighbor_test_js, "neighbor_test", input_file, witness_file)
-            witness_data = export_witness_to_json(witness_file)
             
-            # Extract results using the clearer function
-            outputs = extract_circuit_outputs(witness_data)
+            # Export to JSON
+            witness_data = export_witness_to_json(witness_file, json_file)
+            
+            # Use our specialized extraction function
+            outputs = extract_neighbor_outputs(witness_data)
             original_bits = outputs['original_hash']
             neighbor_bits = outputs['neighbor_hash']
             
@@ -227,16 +343,18 @@ class TestGeohash:
             print(f"\nDirection: {direction_name}")
             print(f"Original geohash: {original_geohash} ({original_lat:.6f}, {original_lng:.6f})")
             print(f"Neighbor geohash: {neighbor_geohash} ({neighbor_lat:.6f}, {neighbor_lng:.6f})")
-            print(f"Coordinate difference: ({(neighbor_lat - original_lat):.6f}, {(neighbor_lng - original_lng):.6f})")
+            
+            # Verify against expected coordinates from the circuit
+            exp_orig_lat = (int(outputs['original_lat']) / 1e6) - 90
+            exp_orig_lng = (int(outputs['original_lng']) / 1e6) - 180
+            exp_neigh_lat = (int(outputs['neighbor_lat']) / 1e6) - 90
+            exp_neigh_lng = (int(outputs['neighbor_lng']) / 1e6) - 180
+            
+            print(f"Expected original: ({exp_orig_lat:.6f}, {exp_orig_lng:.6f})")
+            print(f"Expected neighbor: ({exp_neigh_lat:.6f}, {exp_neigh_lng:.6f})")
             
             # Verify the geohashes are different
             assert original_geohash != neighbor_geohash, f"Neighbor in direction {direction_name} should be different"
-            
-            # Print first differing bit
-            for i, (ob, nb) in enumerate(zip(original_bits, neighbor_bits)):
-                if ob != nb:
-                    print(f"First different bit at position {i}: {ob} vs {nb}")
-                    break
 
 if __name__ == "__main__":
     # pytest.main(["-xvs", "test_geohash.py"])

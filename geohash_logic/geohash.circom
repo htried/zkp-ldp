@@ -6,91 +6,59 @@ include "circuits/gates.circom";
 
 // ---- Basic Bit Operations ----
 
-// Interleave bits from two arrays into one array
+// Interleave bits using spread and combine
 template Interleave() {
     signal input even[32];
     signal input odd[32];
     signal output out[64];
-
-    // Simple interleaving: even bits from first array, odd bits from second array
-    for (var i = 0; i < 32; i++) {
-        out[2*i] <== even[i];
-        out[2*i + 1] <== odd[i];
-    }
-}
-
-// Squash even bitlevels of X into a 32-bit word
-template Squash() {
-    signal input X[64]; // 64-bit input
-    signal output out[32]; // 32-bit output with even bits from input
     
-    // Extract even bits
+    // Direct interleaving with single assignments
     for (var i = 0; i < 32; i++) {
-        out[i] <== X[i*2];
+        // Each bit is assigned exactly once
+        out[2*i] <== even[i];      // Even bits
+        out[2*i + 1] <== odd[i];   // Odd bits
     }
 }
 
-// Deinterleave 64 bits into two 32-bit words with even and odd bits
+// Deinterleave using squash operations
 template Deinterleave() {
-    signal input X[64]; // 64-bit input
-    signal output even[32]; // 32-bit output with even bits
-    signal output odd[32]; // 32-bit output with odd bits
+    signal input X[64];
+    signal output even[32];
+    signal output odd[32];
     
-    // Extract even bits
-    component squashEven = Squash();
-    squashEven.X <== X;
-    even <== squashEven.out;
-    
-    // Extract odd bits
-    signal oddBits[64];
-    for (var i = 0; i < 63; i++) {
-        oddBits[i] <== X[i+1];
+    // Extract even and odd bits directly
+    for (var i = 0; i < 32; i++) {
+        even[i] <== X[2*i];      // Take bits 0, 2, 4, ...
+        odd[i] <== X[2*i + 1];   // Take bits 1, 3, 5, ...
     }
-    oddBits[63] <== 0;
-    
-    component squashOdd = Squash();
-    squashOdd.X <== oddBits;
-    odd <== squashOdd.out;
 }
 
 // ---- Main Templates ----
 
 template Geohash(precision) {
-    signal input lat;    // (Latitude + 90) * 1e6  (0 to 180000000)
-    signal input lng;    // (Longitude + 180) * 1e6 (0 to 360000000)
-    signal output bits[64];    // Binary geohash
-    signal output chars[12];   // Base32 character indices
+    signal input lat;    // (Latitude + 90) * 1e6
+    signal input lng;    // (Longitude + 180) * 1e6
+    signal output bits[64];
+    signal output chars[12];
     
-    // Convert inputs to bits
-    component latBits = Num2Bits(28); // 2^28 > 180000000
-    component lngBits = Num2Bits(29); // 2^29 > 360000000
+    // Convert inputs to bits (LSB order)
+    component latBits = Num2Bits(32);
+    component lngBits = Num2Bits(32);
     
     latBits.in <== lat;
     lngBits.in <== lng;
     
-    // Prepare arrays for interleaving - we'll reverse the bits here to MSB order
-    signal latArray[32];
-    signal lngArray[32];
     
-    // Fill arrays with bits in MSB order
+    // Interleave bits in MSB order (reverse the bit order before interleaving)
     for (var i = 0; i < 32; i++) {
-        if (i < 28) {
-            latArray[i] <== latBits.out[27-i];  // Reverse to MSB order
-        } else {
-            latArray[i] <== 0;
-        }
-        if (i < 29) {
-            lngArray[i] <== lngBits.out[28-i];  // Reverse to MSB order
-        } else {
-            lngArray[i] <== 0;
-        }
+        bits[2*i] <== lngBits.out[31-i];     // Even positions get longitude bits, MSB first
+        bits[2*i + 1] <== latBits.out[31-i]; // Odd positions get latitude bits, MSB first
     }
     
-    // Interleave the bits
-    component interleaver = Interleave();
-    interleaver.even <== latArray;
-    interleaver.odd <== lngArray;
-    bits <== interleaver.out;
+    // Zero out remaining bits
+    for (var i = 64; i < 64; i++) {
+        bits[i] <== 0;
+    }
     
     // Convert to base32 chars
     for (var i = 0; i < 12; i++) {
@@ -122,27 +90,55 @@ template Neighbor() {
     deinterleaver.X <== hash;
     
     // Convert deinterleaved bits to numbers
-    component latNum = Bits2Num(28);
-    component lngNum = Bits2Num(29);
+    component latNum = Bits2Num(32);
+    component lngNum = Bits2Num(32);
     
-    // Connect bits in MSB order
-    for (var i = 0; i < 28; i++) {
-        latNum.in[i] <== deinterleaver.even[27-i];  // Reverse to get MSB first
-    }
-    for (var i = 0; i < 29; i++) {
-        lngNum.in[i] <== deinterleaver.odd[28-i];   // Reverse to get MSB first
+    // Connect bits in MSB order 
+    for (var i = 0; i < 32; i++) {
+        latNum.in[i] <== deinterleaver.odd[31-i];   // Latitude bits (odd positions)
+        lngNum.in[i] <== deinterleaver.even[31-i];  // Longitude bits (even positions)
     }
     
-    // Calculate offsets (using smaller offset value)
+    // Calculate offsets
     signal latOffset <== (isDir[0].out + isDir[1].out + isDir[7].out) * 100000 -
                         (isDir[3].out + isDir[4].out + isDir[5].out) * 100000;
     
     signal lngOffset <== (isDir[1].out + isDir[2].out + isDir[3].out) * 100000 -
                         (isDir[5].out + isDir[6].out + isDir[7].out) * 100000;
     
-    // Calculate new coordinates (fix normalization)
-    signal newLat <== latNum.out + latOffset;  // Already normalized
-    signal newLng <== lngNum.out + lngOffset;  // Already normalized
+    // Calculate potential new coordinates
+    signal rawNewLat <== latNum.out + latOffset;
+    signal rawNewLng <== lngNum.out + lngOffset;
+    
+    // Properly handle latitude bounds (0 to 180000000)
+    component latUnderflow = LessThan(32);  // Check if < 0
+    latUnderflow.in[0] <== rawNewLat;
+    latUnderflow.in[1] <== 0;
+    
+    component latOverflow = LessThan(32);   // Check if > 180000000
+    latOverflow.in[0] <== 180000000;
+    latOverflow.in[1] <== rawNewLat;
+    
+    // Adjust latitude based on underflow/overflow
+    signal newLat <== 
+        latUnderflow.out * 0 + 
+        latOverflow.out * 180000000 +
+        (1 - latUnderflow.out - latOverflow.out) * rawNewLat;
+    
+    // Properly handle longitude wrapping (0 to 360000000)
+    component lngUnderflow = LessThan(32);  // Check if < 0
+    lngUnderflow.in[0] <== rawNewLng;
+    lngUnderflow.in[1] <== 0;
+    
+    component lngOverflow = LessThan(32);   // Check if > 360000000
+    lngOverflow.in[0] <== 360000000;
+    lngOverflow.in[1] <== rawNewLng;
+    
+    // Calculate wrapped longitude
+    signal lngUnderflowAdjust <== lngUnderflow.out * 360000000;
+    signal lngOverflowAdjust <== lngOverflow.out * 360000000;
+    
+    signal newLng <== rawNewLng + lngUnderflowAdjust - lngOverflowAdjust;
     
     // Encode new coordinates
     component encoder = Geohash(32);
