@@ -5,19 +5,50 @@ import time
 import shutil
 
 # Cornell Tech coordinates normalized and scaled by 1e6
-TEST_LAT = 40.756
-TEST_LNG = -73.956
+# TEST_LAT = 40.756
+# TEST_LNG = -73.956
 
 # Test coordinates near longitude -180 to try dealing with wrap-around
 # TEST_LAT = 40.756
-# TEST_LNG = -179.999
+# TEST_LNG = -179.95
 
 # Test coordinates near longitude 180 to try dealing with wrap-around
 # TEST_LAT = 40.756
-# TEST_LNG = 179.999
+# TEST_LNG = 179.95
 
-TEST_LAT_BITS = int((TEST_LAT + 90) * 1e6)
-TEST_LNG_BITS = int((TEST_LNG + 180) * 1e6)
+# Test coordinates near the North Pole
+# TEST_LAT = 89.96
+# TEST_LNG = 10
+
+# Test coordinates near the South Pole
+# TEST_LAT = -89.96
+# TEST_LNG = 10
+
+# Test coordinates near the equator
+# TEST_LAT = 0
+# TEST_LNG = 10
+
+# Test coordinates near the North Pole and the international date line
+# TEST_LAT = 89.96
+# TEST_LNG = 179.95
+
+# Test coordinates near the North Pole and the international date line (to test wrap-around with large offsets)
+TEST_LAT = 81
+TEST_LNG = 171
+
+LAT_SHIFT = 180
+LNG_SHIFT = 360
+
+# shift lat to be between +90 and +270
+# shift lng to be between +180 and +540
+# these shifts are chosen to deal with underflow/overflow issues
+TEST_LAT_BITS = int((TEST_LAT + LAT_SHIFT) * 1e6)
+TEST_LNG_BITS = int((TEST_LNG + LNG_SHIFT) * 1e6)
+
+# Test different offsets
+# offsets = [100000, 50000, 25000]  # 0.1°, 0.05°, 0.025° in degrees * 1e6
+# offsets = [100000]
+offsets = [20_000_000] 
 
 # ----- Helper Functions -----
 
@@ -112,15 +143,15 @@ def extract_circuit_outputs(witness_data):
 
 def extract_neighbor_outputs(witness_data):
     """Extract outputs specifically for neighbor test"""
-    # Get inputs from the correct indices
+    # Get inputs from the correct witness indices
     original_lat = int(witness_data[153])
     original_lng = int(witness_data[154])
-    neighbor_lat = int(witness_data[158])
-    neighbor_lng = int(witness_data[159])
+    neighbor_lat = int(witness_data[170])
+    neighbor_lng = int(witness_data[181])
     
     print(f"\nCoordinates from witness:")
-    print(f"Original: ({original_lat/1e6-90:.6f}, {original_lng/1e6-180:.6f})")
-    print(f"Neighbor: ({neighbor_lat/1e6-90:.6f}, {neighbor_lng/1e6-180:.6f})")
+    print(f"Original: ({original_lat/1e6-LAT_SHIFT:.6f}, {original_lng/1e6-LNG_SHIFT:.6f})")
+    print(f"Neighbor: ({neighbor_lat/1e6-LAT_SHIFT:.6f}, {neighbor_lng/1e6-LNG_SHIFT:.6f})")
     
     # Generate bits directly from coordinates in MSB order (how the circuit works)
     
@@ -214,12 +245,16 @@ def geohash_bits_to_coords(bits):
     # Convert to decimal using MSB order
     lat_decimal = sum(int(lat_bits[i]) * (2 ** (31-i)) for i in range(32))
     lng_decimal = sum(int(lng_bits[i]) * (2 ** (31-i)) for i in range(32))
-    print(f"lat_decimal: {lat_decimal}")
-    print(f"lng_decimal: {lng_decimal}")
     
-    # Convert back to original coordinates
-    lat = lat_decimal / 1e6 - 90
-    lng = lng_decimal / 1e6 - 180
+    # Convert back to original coordinates with proper wrapping
+    lat = lat_decimal / 1e6 - LAT_SHIFT
+    lng = lng_decimal / 1e6 - LNG_SHIFT
+    
+    # Wrap longitude to -180° to +180° range
+    if lng > 180:
+        lng = lng - 360
+    elif lng < -180:
+        lng = lng + 360
     
     return lat, lng
 
@@ -313,58 +348,60 @@ class TestGeohash:
         }
         
         for direction, direction_name in directions.items():
-            input_file = f"{self.build_dir}/neighbor_input_{direction}.json"
-            witness_file = f"{self.build_dir}/neighbor_witness_{direction}.wtns"
-            json_file = f"{self.build_dir}/neighbor_witness_{direction}.json"
-            
-            # IMPORTANT: Use the correct input format
-            input_data = {
-                "lat": TEST_LAT_BITS,
-                "lng": TEST_LNG_BITS,
-                "direction": direction
-            }
-            
-            with open(input_file, "w") as f:
-                json.dump(input_data, f)
-            
-            # Debug the input file
-            with open(input_file, "r") as f:
-                input_content = f.read()
-                print(f"\nInput file for {direction_name}: {input_content}")
+            for offset in offsets:
+                input_file = f"{self.build_dir}/neighbor_input_{direction}_{offset}.json"
+                witness_file = f"{self.build_dir}/neighbor_witness_{direction}_{offset}.wtns"
+                json_file = f"{self.build_dir}/neighbor_witness_{direction}_{offset}.json"
+                
+                # IMPORTANT: Use the correct input format with offset
+                input_data = {
+                    "lat": TEST_LAT_BITS,
+                    "lng": TEST_LNG_BITS,
+                    "direction": direction,
+                    "offset": offset
+                }
+                
+                with open(input_file, "w") as f:
+                    json.dump(input_data, f)
+                
+                # Debug the input file
+                with open(input_file, "r") as f:
+                    input_content = f.read()
+                    print(f"\nInput file for {direction_name} with offset {offset/1e6}°: {input_content}")
 
-            generate_witness(self.neighbor_test_js, "neighbor_test", input_file, witness_file)
-            
-            # Export to JSON
-            witness_data = export_witness_to_json(witness_file, json_file)
-            
-            # Use our specialized extraction function
-            outputs = extract_neighbor_outputs(witness_data)
-            original_bits = outputs['original_hash']
-            neighbor_bits = outputs['neighbor_hash']
-            
-            # Convert to base32
-            original_geohash = bits_to_geohash(original_bits)
-            neighbor_geohash = bits_to_geohash(neighbor_bits)
-            
-            # Convert to coordinates
-            original_lat, original_lng = geohash_bits_to_coords(original_bits)
-            neighbor_lat, neighbor_lng = geohash_bits_to_coords(neighbor_bits)
-            
-            print(f"\nDirection: {direction_name}")
-            print(f"Original geohash: {original_geohash} ({original_lat:.6f}, {original_lng:.6f})")
-            print(f"Neighbor geohash: {neighbor_geohash} ({neighbor_lat:.6f}, {neighbor_lng:.6f})")
-            
-            # Verify against expected coordinates from the circuit
-            exp_orig_lat = (int(outputs['original_lat']) / 1e6) - 90
-            exp_orig_lng = (int(outputs['original_lng']) / 1e6) - 180
-            exp_neigh_lat = (int(outputs['neighbor_lat']) / 1e6) - 90
-            exp_neigh_lng = (int(outputs['neighbor_lng']) / 1e6) - 180
-            
-            print(f"Expected original: ({exp_orig_lat:.6f}, {exp_orig_lng:.6f})")
-            print(f"Expected neighbor: ({exp_neigh_lat:.6f}, {exp_neigh_lng:.6f})")
-            
-            # Verify the geohashes are different
-            assert original_geohash != neighbor_geohash, f"Neighbor in direction {direction_name} should be different"
+                generate_witness(self.neighbor_test_js, "neighbor_test", input_file, witness_file)
+                
+                # Export to JSON
+                witness_data = export_witness_to_json(witness_file, json_file)
+                
+                # Use our specialized extraction function
+                outputs = extract_neighbor_outputs(witness_data)
+                original_bits = outputs['original_hash']
+                neighbor_bits = outputs['neighbor_hash']
+                
+                # Convert to base32
+                original_geohash = bits_to_geohash(original_bits)
+                neighbor_geohash = bits_to_geohash(neighbor_bits)
+                
+                # Convert to coordinates
+                original_lat, original_lng = geohash_bits_to_coords(original_bits)
+                neighbor_lat, neighbor_lng = geohash_bits_to_coords(neighbor_bits)
+                
+                print(f"\nDirection: {direction_name} with offset {offset/1e6}°")
+                print(f"Original geohash: {original_geohash} ({original_lat:.6f}, {original_lng:.6f})")
+                print(f"Neighbor geohash: {neighbor_geohash} ({neighbor_lat:.6f}, {neighbor_lng:.6f})")
+                
+                # Verify against expected coordinates from the circuit
+                exp_orig_lat = (int(outputs['original_lat']) / 1e6) - LAT_SHIFT
+                exp_orig_lng = (int(outputs['original_lng']) / 1e6) - LNG_SHIFT
+                exp_neigh_lat = (int(outputs['neighbor_lat']) / 1e6) - LAT_SHIFT
+                exp_neigh_lng = (int(outputs['neighbor_lng']) / 1e6) - LNG_SHIFT
+                
+                print(f"Expected original: ({exp_orig_lat:.6f}, {exp_orig_lng:.6f})")
+                print(f"Expected neighbor: ({exp_neigh_lat:.6f}, {exp_neigh_lng:.6f})")
+                
+                # Verify the geohashes are different
+                assert original_geohash != neighbor_geohash, f"Neighbor in direction {direction_name} with offset {offset/1e6}° should be different"
 
 if __name__ == "__main__":
     # pytest.main(["-xvs", "test_geohash.py"])

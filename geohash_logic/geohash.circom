@@ -36,8 +36,8 @@ template Deinterleave() {
 // ---- Main Templates ----
 
 template Geohash(precision) {
-    signal input lat;    // (Latitude + 90) * 1e6
-    signal input lng;    // (Longitude + 180) * 1e6
+    signal input lat;    // (Latitude + 180) * 1e6
+    signal input lng;    // (Longitude + 360) * 1e6
     signal output bits[64];
     signal output chars[12];
     
@@ -72,8 +72,9 @@ template Geohash(precision) {
 }
 
 template Neighbor() {
-    signal input hash[64];  // Input geohash bits
-    signal input direction; // Direction (0-7): N, NE, E, SE, S, SW, W, NW
+    signal input hash[64];      // Input geohash bits
+    signal input direction;     // Direction (0-7): N, NE, E, SE, S, SW, W, NW
+    signal input offset;        // Offset in degrees * 1e6
     signal output neighbor[64]; // Output neighbor geohash bits
     signal output chars[12];    // Base32 character indices
     
@@ -99,40 +100,96 @@ template Neighbor() {
         lngNum.in[i] <== deinterleaver.even[31-i];  // Longitude bits (even positions)
     }
     
-    // Calculate offsets
-    signal latOffset <== (isDir[0].out + isDir[1].out + isDir[7].out) * 100000 -
-                        (isDir[3].out + isDir[4].out + isDir[5].out) * 100000;
-    
-    signal lngOffset <== (isDir[1].out + isDir[2].out + isDir[3].out) * 100000 -
-                        (isDir[5].out + isDir[6].out + isDir[7].out) * 100000;
+    // Calculate offsets using the input offset parameter
+    // Break down into quadratic constraints
+
+    // First calculate the positive and negative components separately
+    signal latOffsetPositive <== (isDir[0].out + isDir[1].out + isDir[7].out) * offset;
+    signal latOffsetNegative <== (isDir[3].out + isDir[4].out + isDir[5].out) * offset;
+
+    // Then combine them
+    signal latOffset <== latOffsetPositive - latOffsetNegative;
+
+    // Similarly for longitude
+    signal lngOffsetPositive <== (isDir[1].out + isDir[2].out + isDir[3].out) * offset;
+    signal lngOffsetNegative <== (isDir[5].out + isDir[6].out + isDir[7].out) * offset;
+
+    // Then combine them
+    signal lngOffset <== lngOffsetPositive - lngOffsetNegative;
     
     // Calculate potential new coordinates
     signal rawNewLat <== latNum.out + latOffset;
-    
-    // For longitude wrapping, handle each case separately
+
+    // Check if we're crossing the North Pole (exceeding 90°)
+    component crossingNorthPole = GreaterEqThan(32);
+    crossingNorthPole.in[0] <== rawNewLat;
+    crossingNorthPole.in[1] <== 270000000;  // 90° + 180° shift
+
+    // Check if we're crossing the South Pole (going below -90°)
+    component crossingSouthPole = LessThan(32);
+    crossingSouthPole.in[0] <== rawNewLat;
+    crossingSouthPole.in[1] <== 90000000;   // -90° + 180° shift
+
+    // Break down the selection into quadratic constraints
+    signal isNormalCase <== 1 - crossingNorthPole.out - crossingSouthPole.out;
+
+    // Calculate how far we went over/under the limits
+    signal northOverflow <== rawNewLat - 270000000;  // How far over North Pole
+    signal southUnderflow <== 90000000 - rawNewLat;  // How far under South Pole
+
+    // Calculate each case separately
+    signal tempLat1 <== crossingNorthPole.out * (270000000 - northOverflow);  // North Pole case: reflect back from max
+    signal tempLat2 <== crossingSouthPole.out * (90000000 + southUnderflow);  // South Pole case: reflect back from min
+    signal tempLat3 <== isNormalCase * rawNewLat;           // Normal case
+
+    // Combine the results
+    signal newLat <== tempLat1 + tempLat2 + tempLat3;
+
+    // For longitude, we need to flip it by 180° when crossing either pole
+    signal isLngFlip <== crossingNorthPole.out + crossingSouthPole.out;
+    signal isNotLngFlip <== 1 - isLngFlip;
+
     signal rawNewLng <== lngNum.out + lngOffset;
 
-    // Check for underflow (result < 0)
-    component isUnderflow = LessThan(32);
-    isUnderflow.in[0] <== rawNewLng;
-    isUnderflow.in[1] <== 0;
+    // Check if we need to wrap around the 180° boundary
+    component lngOverflow = GreaterEqThan(32);
+    lngOverflow.in[0] <== rawNewLng;
+    lngOverflow.in[1] <== 540000000;  // 180° + 360° shift
 
-    // Check for overflow (result >= 360000000)
-    component isOverflow = GreaterEqThan(32);
-    isOverflow.in[0] <== rawNewLng;
-    isOverflow.in[1] <== 360000000;
+    component lngUnderflow = LessThan(32);
+    lngUnderflow.in[0] <== rawNewLng;
+    lngUnderflow.in[1] <== 180000000;  // -180° + 360° shift
 
-    // Calculate each potential outcome separately
-    signal wrapPositive <== rawNewLng + 360000000;
-    signal wrapNegative <== rawNewLng - 360000000;
+    // First handle potential underflow/overflow
+    signal tempLng1 <== rawNewLng;
+    signal tempLng2 <== tempLng1 + (lngUnderflow.out * 360000000);
+    signal tempLng3 <== tempLng2 - (lngOverflow.out * 360000000);
 
-    // Apply wrapping only when needed
-    signal tempLng <== rawNewLng + (isUnderflow.out * 360000000);
-    signal newLng <== tempLng - (isOverflow.out * 360000000);
-    
+    // Then handle potential pole-crossing flip
+    signal tempLng4 <== tempLng3 + 180000000;  // Flip by 180°
+
+    // Check if the flipped longitude needs wrapping
+    component flippedLngOverflow = GreaterEqThan(32);
+    flippedLngOverflow.in[0] <== tempLng4;
+    flippedLngOverflow.in[1] <== 540000000;  // 180° + 360° shift
+
+    component flippedLngUnderflow = LessThan(32);
+    flippedLngUnderflow.in[0] <== tempLng4;
+    flippedLngUnderflow.in[1] <== 180000000;  // -180° + 360° shift
+
+    // Wrap the flipped longitude if needed
+    signal tempLng5 <== tempLng4 + (flippedLngUnderflow.out * 360000000);
+    signal tempLng6 <== tempLng5 - (flippedLngOverflow.out * 360000000);
+
+    // Finally select between flipped and unflipped versions of the longitude
+    signal tempLng7 <== isLngFlip * tempLng6;
+    signal tempLng8 <== isNotLngFlip * tempLng3;
+
+    signal newLng <== tempLng7 + tempLng8;
+
     // Encode new coordinates
     component encoder = Geohash(32);
-    encoder.lat <== rawNewLat;
+    encoder.lat <== newLat;
     encoder.lng <== newLng;
     
     // Copy outputs
