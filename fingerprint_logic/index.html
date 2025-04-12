@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuzzy Fingerprint Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .result {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fuzzy Fingerprint Test</h1>
+    <div id="status">Collecting fingerprint data...</div>
+    <div class="result">
+        <h2>Fingerprint Data:</h2>
+        <pre id="fingerprint"></pre>
+        <h2>Fuzzy Hash:</h2>
+        <pre id="hash"></pre>
+    </div>
+
+    <script type="module">
+        import { collectFingerprint } from './fingerprint_collector.js';
+        import { getFuzzyHash } from './fuzzy_fingerprint.js';
+
+        async function runTest() {
+            try {
+                const fingerprint = await collectFingerprint();
+                const fuzzyHash = await getFuzzyHash(fingerprint);
+                
+                document.getElementById('fingerprint').textContent = 
+                    JSON.stringify(fingerprint, null, 2);
+                document.getElementById('hash').textContent = fuzzyHash;
+                document.getElementById('status').textContent = 'Test completed successfully!';
+            } catch (error) {
+                document.getElementById('status').textContent = 
+                    `Test failed: ${error.message}`;
+                console.error(error);
+            }
+        }
+
+        runTest();
+    </script>
+</body>
+</html> 

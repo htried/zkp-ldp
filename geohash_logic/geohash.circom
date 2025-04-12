@@ -51,13 +51,8 @@ template Geohash(precision) {
     
     // Interleave bits in MSB order (reverse the bit order before interleaving)
     for (var i = 0; i < 32; i++) {
-        bits[2*i] <== lngBits.out[31-i];     // Even positions get longitude bits, MSB first
-        bits[2*i + 1] <== latBits.out[31-i]; // Odd positions get latitude bits, MSB first
-    }
-    
-    // Zero out remaining bits
-    for (var i = 64; i < 64; i++) {
-        bits[i] <== 0;
+        bits[2*i] <== lngBits.out[31-i];     // Even positions get longitude bits, MSB
+        bits[2*i + 1] <== latBits.out[31-i]; // Odd positions get latitude bits, MSB
     }
     
     // Convert to base32 chars
