@@ -1,0 +1,24 @@
+{
+  "name": "fuzzy-fingerprint",
+  "version": "1.0.0",
+  "description": "Fuzzy fingerprint implementation for browser identification",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "build": "tsc",
+    "dev": "nodemon server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:fuzzy": "npm run build && node dist/test_fuzzy_fingerprint.js"
+  },
+  "dependencies": {
+    "canvas": "^3.1.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "nodemon": "^3.0.3",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  }
+}
