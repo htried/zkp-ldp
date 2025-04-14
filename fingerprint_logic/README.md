@@ -40,7 +40,7 @@ The server will start on http://localhost:8080 by default. You can change the po
 - `npm run dev`: Start the server in development mode with auto-reload
 - `npm start`: Start the server in production mode
 - `npm run build`: Build the TypeScript files (if any)
-- `npm test`: Run tests (to be implemented)
+- `npm run test:fuzzy`: Run a fuzzy hashing test on several test fingerprints
 
 ## Environment Variables
 
