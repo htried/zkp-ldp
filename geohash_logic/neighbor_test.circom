@@ -1,7 +1,7 @@
 pragma circom 2.2.0;
 
 include "geohash.circom";
-include "circomlib/circuits/gates.circom";
+include "../circomlib/circuits/gates.circom";
 
 template NeighborTest() {
     signal input lat;         // Latitude (scaled by 1000000)

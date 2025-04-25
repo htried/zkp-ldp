@@ -1,8 +1,8 @@
 pragma circom 2.2.0;
 
-include "circuits/bitify.circom";
-include "circuits/comparators.circom";
-include "circuits/gates.circom";
+include "../circomlib/circuits/bitify.circom";
+include "../circomlib/circuits/comparators.circom";
+include "../circomlib/circuits/gates.circom";
 
 // ---- Basic Bit Operations ----
 
