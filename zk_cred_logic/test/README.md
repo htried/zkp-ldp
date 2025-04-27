@@ -2,28 +2,20 @@
 
 ### `cold_start.json`
 
-Used to test the initial state creation scenario, when everything is initialized to 0. New state should equal old state and `challenge_failed` should be 1.
+Used to test the initial state creation scenario, when everything is initialized to 0. Adding an IP and a geohash here should bypass the geohash distance checks, and the IP should be added to the first slot in the list.
 
-### `new_ip_challenge_fail_full.json`
+### `add_new_ip_not_full.json`
 
-Used to test the scenario where the input IP is a new IP address, the previously-seen IP list is full, and a challenge has not been passed. New state should equal old state and `challenge_failed` should be 1.
+Tests the scenario where a new IP is added to the state and an empty slot in the state is open.
 
-### `new_ip_challenge_fail_not_full.json`
+### `add_new_ip_state_full.json`
 
-Used to test the scenario where the input IP is a new IP address, the previously-seen IP list is not full, and a challenge has not been passed. New state should equal old state and `challenge_failed` should be 1.
+Tests the scenario where a new IP is added to the state and the state is already full. The new IP should be put in the last slot of the state, and every other entry of the state should be pushed down by 1 entry.
 
-### `new_ip_challenge_pass_full.json`
+### `add_old_ip_not_full.json`
 
-Used to test the scenario where the input IP is a new IP address, the previously-seen IP list is full, and a challenge *has* been passed. New state should not equal old state and `challenge_failed` should be 0.
+Tests the scenario when an IP is added to the state when it's not empty, but the IP is already in the state. A new IP should not be added in this case.
 
-### `new_ip_challenge_pass_not_full.json`
+### `add_old_ip_state_full.json`
 
-Used to test the scenario where the input IP is a new IP address, the previously-seen IP list is not full, and a challenge *has* been passed. New state should not equal old state and `challenge_failed` should be 0.
-
-### `old_ip_full.json`
-
-Used to test the scenario where the input IP is an old IP address, the previously-seen IP list is full. In this scenario, no need to pass a challenge. New state should not equal old state and `challenge_failed` should be 0.
-
-### `old_ip_not_full.json`
-
-Used to test the scenario where the input IP is an old IP address, the previously-seen IP list is not full. In this scenario, no need to pass a challenge. New state should not equal old state and `challenge_failed` should be 0.
+Tests the scenario when an IP is added to the state when it's full and the IP is already in the state. The state's IP list should not change in this scenario.

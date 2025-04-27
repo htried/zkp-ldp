@@ -34,7 +34,7 @@ template ValidateInitialState(num_ips) {
     // Initial signed state
     signal input ips[num_ips];
     signal input geohashes[num_ips];
-    signal input last_fingerprint;
+    signal input last_fingerprint[2];
     signal input users_prf_seed;
     signal input state_counter; 
     signal input initial_state_r8x;
@@ -45,7 +45,7 @@ template ValidateInitialState(num_ips) {
 
     signal output nullifier;
 
-    var len = num_ips + num_ips + 1 + 1 + 1;
+    var len = num_ips + num_ips + 2 + 1 + 1;
     component state_hasher = Poseidon(len);
     for (var i = 0; i < num_ips; i++) {
         state_hasher.inputs[i] <== ips[i];
@@ -53,9 +53,10 @@ template ValidateInitialState(num_ips) {
     for (var i = num_ips; i < 2*num_ips; i++) {
         state_hasher.inputs[i] <== geohashes[i - num_ips];
     }
-    state_hasher.inputs[2*num_ips] <== last_fingerprint;
-    state_hasher.inputs[2*num_ips + 1] <== users_prf_seed;
-    state_hasher.inputs[2*num_ips + 2] <== state_counter;
+    state_hasher.inputs[2*num_ips] <== last_fingerprint[0];
+    state_hasher.inputs[2*num_ips + 1] <== last_fingerprint[1];
+    state_hasher.inputs[2*num_ips + 2] <== users_prf_seed;
+    state_hasher.inputs[2*num_ips + 3] <== state_counter;
 
     component comm_hasher = Poseidon(2);
     comm_hasher.inputs[0] <== comm_rand;
@@ -122,7 +123,7 @@ template CreateUpdatedState(num_ips) {
     // Stuff to add to new state
     signal input new_ip;
     signal input new_geohash;
-    signal input new_fingerprint;
+    signal input new_fingerprint[2];
     // Randomness for comm to new state:
     signal input state_comm_randomness;
 
@@ -133,7 +134,7 @@ template CreateUpdatedState(num_ips) {
     signal newState_ips[num_ips];
     signal newState_geohashes[num_ips];
     signal new_user_prf_seed <== users_prf_seed;
-    signal new_last_fingerprint <== new_fingerprint;
+    signal new_last_fingerprint[2] <== new_fingerprint;
     signal new_state_counter <== state_counter + 1;
 
     // Pre-declare components for IP state update logic
@@ -220,7 +221,7 @@ template CreateUpdatedState(num_ips) {
         newState_geohashes[i] <== mux3[i].out[1];
     }
     
-    var len = num_ips + num_ips + 1 + 1 + 1;
+    var len = num_ips + num_ips + 2 + 1 + 1;
     component new_state_hasher = Poseidon(len);
     for (var i = 0; i < num_ips; i++) {
         new_state_hasher.inputs[i] <== newState_ips[i];
@@ -228,9 +229,10 @@ template CreateUpdatedState(num_ips) {
     for (var i = num_ips; i < 2*num_ips; i++) {
         new_state_hasher.inputs[i] <== newState_geohashes[i - num_ips];
     }
-    new_state_hasher.inputs[2*num_ips] <== new_last_fingerprint;
-    new_state_hasher.inputs[2*num_ips + 1] <== new_user_prf_seed;
-    new_state_hasher.inputs[2*num_ips + 2] <== new_state_counter;
+    new_state_hasher.inputs[2*num_ips] <== new_last_fingerprint[0];
+    new_state_hasher.inputs[2*num_ips + 1] <== new_last_fingerprint[1];
+    new_state_hasher.inputs[2*num_ips + 2] <== new_user_prf_seed;
+    new_state_hasher.inputs[2*num_ips + 3] <== new_state_counter;
 
     component comm_hasher = Poseidon(2);
     comm_hasher.inputs[0] <== state_comm_randomness;
@@ -243,7 +245,7 @@ template AttemptStateUpdate(num_ips) {
     // Inputs corresponding to previous state
     signal input ips[num_ips];
     signal input geohashes[num_ips];
-    signal input last_fingerprint;
+    signal input last_fingerprint[2];
     signal input users_prf_seed;
     signal input state_counter;
     signal input initial_state_r8x;
@@ -264,7 +266,7 @@ template AttemptStateUpdate(num_ips) {
     // User-provided blind for new state
     signal input state_comm_randomness;
     // Browser-provided new fingerprint.
-    signal input new_fingerprint;
+    signal input new_fingerprint[2];
 
     // Outputs
     // Nullifier so a client can't reuse a previously used state.
@@ -347,16 +349,15 @@ template AttemptStateUpdate(num_ips) {
     valid_new_geohash === 1;    
 
     // Browser fingerprint check
-    component fingerprint_similarity_score_calc = HashSimilarityScore(1);
-    fingerprint_similarity_score_calc.hash1[0] <== last_fingerprint;
-    fingerprint_similarity_score_calc.hash2[0] <== new_fingerprint;
+    component fingerprint_similarity_score_calc = HashSimilarityScore(2);
+    fingerprint_similarity_score_calc.hash1 <== last_fingerprint;
+    fingerprint_similarity_score_calc.hash2 <== new_fingerprint;
     signal fingerprint_similarity <== fingerprint_similarity_score_calc.similarity_score;
 
     var fingerprint_similarity_threshold = 300; // this is configurable.
     component similarity_score_checker = LessThan(10);
-    similarity_score_checker.in[0] <== fingerprint_similarity;
-    similarity_score_checker.in[1] <== fingerprint_similarity_threshold;
-
+    similarity_score_checker.in[0] <== fingerprint_similarity_threshold;
+    similarity_score_checker.in[1] <== fingerprint_similarity;
     similarity_score_checker.out === 1;
 
 
@@ -371,9 +372,10 @@ template AttemptStateUpdate(num_ips) {
     }
 
     // Produce p,q randomness for IRR
-    component rappor_randomness_hasher_1 = Poseidon(2);
+    component rappor_randomness_hasher_1 = Poseidon(3);
     rappor_randomness_hasher_1.inputs[0] <== users_prf_seed;
     rappor_randomness_hasher_1.inputs[1] <== new_rappor_nonce;
+    rappor_randomness_hasher_1.inputs[2] <== state_counter;
     component rappor_randomness_hasher_2 = Poseidon(2);
     rappor_randomness_hasher_2.inputs[0] <== users_prf_seed;
     rappor_randomness_hasher_2.inputs[1] <== rappor_randomness_hasher_1.out;

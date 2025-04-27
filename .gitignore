@@ -58,7 +58,7 @@ yarn-error.log*
 *.tsbuildinfo 
 
 *.js
-!proof_in_js_test.js
+!test_circom_state.js
 !server.js
 
 *-checkpoint.ipynb
