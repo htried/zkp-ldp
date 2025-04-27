@@ -104,12 +104,25 @@ const fp2: Fingerprint = {
     }
 };
 
+// function fuzzyFingerprintToCircomFelts(hash: String) : [BigInt, BigInt] {
+//     const firstHalf = hash.slice(0, 250);
+//     const secondHalf = hash.slice(250, 500);
+
+//     const firstInt = BigInt('0b' + firstHalf);
+//     const secondInt = BigInt('0b' + secondHalf);
+
+//     return [firstInt, secondInt];
+// }
+
 async function testFuzzyFingerprint(fp1: Fingerprint, fp2: Fingerprint) {
     try {
         // Get fuzzy hashes
         const hash1 = await getFuzzyHash(fp1);
         const hash2 = await getFuzzyHash(fp2);
         
+        // console.log('Fingerprint 1 Hash as Felts:', fuzzyFingerprintToCircomFelts(hash1));
+        // console.log('Fingerprint 2 Hash as Felts:', fuzzyFingerprintToCircomFelts(hash2));
+
         // Convert hashes to base32 strings
         const base32Hash1 = convertToBase32(hash1);
         const base32Hash2 = convertToBase32(hash2);

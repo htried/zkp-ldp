@@ -31,9 +31,6 @@ async function main() {
     const eddsa = await buildEddsa();
     const babyJub = await buildBabyjub();
     const F = babyJub.F;
-
-    // Define message
-    // const msg = F.e(1234);
     
     // Define private key (32 bytes)
     const prvKey = Buffer.from("0001020304050607080900010203040506070809000102030405060708090001", "hex");
@@ -44,15 +41,9 @@ async function main() {
 
     // Sign the message
     const signature = eddsa.signPoseidon(prvKey, hash);
-    // console.log("Signature:", {
-    //     R8x: F.toObject(signature.R8[0]),
-    //     R8y: F.toObject(signature.R8[1]),
-    //     S: signature.S
-    // });
 
     // Verify the signature
     const isValid = eddsa.verifyPoseidon(hash, signature, pubKey);
-    // console.log("Signature Valid:", isValid);
     console.log({
         // Pubkey
         Ax: F.toObject(pubKey[0]).toString(),

@@ -58,6 +58,7 @@ yarn-error.log*
 *.tsbuildinfo 
 
 *.js
+!proof_in_js_test.js
 !server.js
 
 *-checkpoint.ipynb

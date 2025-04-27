@@ -110,7 +110,7 @@ template PermanentRandomizedResponse(num_bloombits) {
     signal output prr[num_bloombits]; 
 
     // Convert f randomness into blocks of 8 bits.
-    component fToBits = Num2Bits(250);
+    component fToBits = Num2Bits(255);
     fToBits.in <== f_randomness;
 
     component f_chunks[num_bloombits];
@@ -177,9 +177,9 @@ template IndividualRandomizedResponse(num_bloombits) {
     signal output irr[num_bloombits];
 
     // Convert p randomness, q randomness into blocks of 8 bits.
-    component pToBits = Num2Bits(250);
+    component pToBits = Num2Bits(255);
     pToBits.in <== p_randomness;
-    component qToBits = Num2Bits(250);
+    component qToBits = Num2Bits(255);
     qToBits.in <== q_randomness;
 
     component p_chunks[num_bloombits];

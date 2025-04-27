@@ -326,7 +326,25 @@ template AttemptStateUpdate(num_ips) {
             is_new_geohash_neighbor.in[i*9 + d] <== IsEqual()([new_geohash_neighbors[d], geohashes[i]]);
         }
     }
-    is_new_geohash_neighbor.out === 1;    
+
+    // Compute values for responses
+    component is_zero_for_distinct_count[num_ips];
+    signal running_sum[num_ips];
+    for (var i = 0; i < num_ips; i++) {
+        is_zero_for_distinct_count[i] = IsZero();
+        is_zero_for_distinct_count[i].in <== ips[i];
+        if (i == 0) {
+            running_sum[i] <== is_zero_for_distinct_count[i].out;
+        } else {
+            running_sum[i] <== running_sum[i-1] + is_zero_for_distinct_count[i].out;
+        }
+    }
+    signal distinct_ips_count <== num_ips - running_sum[num_ips - 1];
+
+    signal is_ip_list_empty <== IsEqual()([distinct_ips_count, 0]);
+    signal valid_new_geohash <== OR()(is_new_geohash_neighbor.out, is_ip_list_empty);
+    
+    valid_new_geohash === 1;    
 
     // Browser fingerprint check
     component fingerprint_similarity_score_calc = HashSimilarityScore(1);
@@ -359,20 +377,6 @@ template AttemptStateUpdate(num_ips) {
     component rappor_randomness_hasher_2 = Poseidon(2);
     rappor_randomness_hasher_2.inputs[0] <== users_prf_seed;
     rappor_randomness_hasher_2.inputs[1] <== rappor_randomness_hasher_1.out;
-
-    // Compute values for responses
-    component is_zero_for_distinct_count[num_ips];
-    signal running_sum[num_ips];
-    for (var i = 0; i < num_ips; i++) {
-        is_zero_for_distinct_count[i] = IsZero();
-        is_zero_for_distinct_count[i].in <== ips[i];
-        if (i == 0) {
-            running_sum[i] <== is_zero_for_distinct_count[i].out;
-        } else {
-            running_sum[i] <== running_sum[i-1] + is_zero_for_distinct_count[i].out;
-        }
-    }
-    signal distinct_ips_count <== num_ips - running_sum[num_ips - 1];
 
     // Add responses to bloom filter.
     component add_distinct_ips_to_filter = AddToBloomFilter(num_hashes, num_bloombits, log_bloombits);

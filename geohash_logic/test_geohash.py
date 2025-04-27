@@ -258,6 +258,10 @@ def geohash_bits_to_coords(bits):
     
     return lat, lng
 
+# Circom compatible bits2num function for generating test data for the test harness.
+def bits2num(bits):
+    return sum(b << i for i, b in enumerate(bits))
+
 # ----- Test Class -----
 
 class TestGeohash:
@@ -285,7 +289,6 @@ class TestGeohash:
         # Recompile the circuit
         cls.geohash_test_js = compile_circuit("geohash_logic/geohash_test.circom", "geohash_test")
         cls.neighbor_test_js = compile_circuit("geohash_logic/neighbor_test.circom", "neighbor_test")
-        
 
     def test_geohash(self):
         """Test the proper geohash encoding with interval bisection"""
@@ -378,7 +381,6 @@ class TestGeohash:
                 outputs = extract_neighbor_outputs(witness_data)
                 original_bits = outputs['original_hash']
                 neighbor_bits = outputs['neighbor_hash']
-                
                 # Convert to base32
                 original_geohash = bits_to_geohash(original_bits)
                 neighbor_geohash = bits_to_geohash(neighbor_bits)
@@ -390,6 +392,9 @@ class TestGeohash:
                 print(f"\nDirection: {direction_name} with offset {offset/1e6}°")
                 print(f"Original geohash: {original_geohash} ({original_lat:.6f}, {original_lng:.6f})")
                 print(f"Neighbor geohash: {neighbor_geohash} ({neighbor_lat:.6f}, {neighbor_lng:.6f})")
+
+                print(f"Original geohash as a field element: {bits2num(original_bits)}")
+                print(f"Neighbor geohash as a field element: {bits2num(neighbor_bits)}")
                 
                 # Verify against expected coordinates from the circuit
                 exp_orig_lat = (int(outputs['original_lat']) / 1e6) - LAT_SHIFT
