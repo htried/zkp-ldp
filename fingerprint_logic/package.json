@@ -8,7 +8,6 @@
     "start": "node server.js",
     "build": "tsc",
     "dev": "nodemon server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
     "test:fuzzy": "npm run build && node dist/test_fuzzy_fingerprint.js"
   },
   "dependencies": {

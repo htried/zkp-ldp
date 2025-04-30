@@ -1,5 +1,7 @@
 import { Canvas } from 'canvas';
 
+const SIMHASH_SIZE = 500;
+
 // SimHash implementation for similarity comparison
 function hashString(str: string): number {
     let hash = 0;
@@ -27,7 +29,7 @@ function valueToString(value: any): string {
 
 // Generate feature hashes for SimHash
 function generateFeatureHashes(value: string): number[] {
-    const hashes: number[] = new Array(512).fill(0);
+    const hashes: number[] = new Array(SIMHASH_SIZE).fill(0);
     const words = value.toLowerCase().split(/\s+/);
     
     // Weight different components differently
@@ -73,7 +75,7 @@ function generateFeatureHashes(value: string): number[] {
         
         // Generate hash with higher weight for more distinctive features
         const hash = hashString(word);
-        for (let i = 0; i < 512; i++) {
+        for (let i = 0; i < SIMHASH_SIZE; i++) {
             const bit = (hash >> (i % 32)) & 1;
             // Square the weight to increase differentiation
             hashes[i] += bit ? weight * weight : -weight * weight;
