@@ -35,7 +35,7 @@ template Deinterleave() {
 
 // ---- Main Templates ----
 
-template Geohash(precision) {
+template Geohash() {
     signal input lat;    // (Latitude + 180) * 1e6
     signal input lng;    // (Longitude + 360) * 1e6
     signal output bits[64];
@@ -183,7 +183,7 @@ template Neighbor() {
     signal newLng <== tempLng7 + tempLng8;
 
     // Encode new coordinates
-    component encoder = Geohash(32);
+    component encoder = Geohash();
     encoder.lat <== newLat;
     encoder.lng <== newLng;
     

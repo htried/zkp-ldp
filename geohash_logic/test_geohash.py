@@ -78,7 +78,7 @@ def compile_circuit(circuit_path, circuit_name):
         shutil.rmtree(js_dir)
     
     # Compile with output to build directory
-    command = f"circom {circuit_path} --output {build_dir} -l geohash_logic/circomlib --r1cs --wasm --sym --c"
+    command = f"circom {circuit_path} --output {build_dir} -l circomlib --r1cs --wasm --sym --c"
     _ = run_command(command)
 
     return f"{build_dir}/{circuit_name}_js"
