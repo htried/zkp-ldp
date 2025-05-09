@@ -306,28 +306,88 @@ template AttemptStateUpdate(num_ips) {
     
     // Geohash distance check. We will check that at a given precision,
     // the geohash of the new IP is neighboring one of the last num_ips
-    signal geohash_offset <== 20000000; // configurable parameter, 20 million like the tests.
+    // signal geohash_offset <== 20000000; // configurable parameter, 20 million like the tests.
+
+    // 15 bits of precision = 3 shared 32-bit characters, aka bounding box ≤ 156km X 156km.
+    // var geohash_shared_bits = 15;
+
+    // 20 bits of precision = 4 shared 32-bit characters, aka bounding box ≤ 39.1km X 19.5km.
+    // var geohash_shared_bits = 20;
+
+    // 25 bits of precision = 5 shared 32-bit characters, aka bounding box ≤ 4.89km X 4.89km.
+    var geohash_shared_bits = 25;
+
+    // Convert new geohash and old geohashes to bits
     signal new_geohash_bits[64] <== Num2Bits(64)(new_geohash);
-
-    // Neighbors of the new geohash + the current geohash.
-    // One of the current geohashes is expectedto be in this list.
-    component neighbor_components[8];
-    signal new_geohash_neighbors[9]; 
-    for(var d = 0; d < 8; d++) {
-        neighbor_components[d] = Neighbor();
-        neighbor_components[d].hash <== new_geohash_bits;
-        neighbor_components[d].direction <== d;
-        neighbor_components[d].offset <== geohash_offset;
-        new_geohash_neighbors[d] <== Bits2Num(64)(neighbor_components[d].neighbor);
-    }
-    new_geohash_neighbors[8] <== new_geohash;
-
-    component is_new_geohash_neighbor = MultiOR(9 * num_ips);
+    signal geohashes_bits[num_ips][64];
     for (var i = 0; i < num_ips; i++) {
-        for (var d = 0; d < 9; d++) {
-            is_new_geohash_neighbor.in[i*9 + d] <== IsEqual()([new_geohash_neighbors[d], geohashes[i]]);
+        geohashes_bits[i] <== Num2Bits(64)(geohashes[i]);
+    }
+
+    // Extract shared bits from new geohash and old geohashes
+    signal new_geohash_bits_shared[geohash_shared_bits];
+    signal geohashes_bits_shared[num_ips][geohash_shared_bits];
+
+    for (var i = 0; i < geohash_shared_bits; i++) {
+        new_geohash_bits_shared[i] <== new_geohash_bits[60 - geohash_shared_bits + i];
+    }
+
+    for (var i = 0; i < num_ips; i++) {
+        for (var j = 0; j < geohash_shared_bits; j++) {
+            geohashes_bits_shared[i][j] <== geohashes_bits[i][60 - geohash_shared_bits + j];
         }
     }
+
+    // Declare all components at the top level
+    component bit_equals[num_ips][geohash_shared_bits];
+    component all_bits_equal_checks[num_ips];
+    signal all_bits_equal[num_ips];
+    
+    // Initialize bit comparison components
+    for (var i = 0; i < num_ips; i++) {
+        all_bits_equal_checks[i] = MultiAND(geohash_shared_bits);
+        for (var j = 0; j < geohash_shared_bits; j++) {
+            bit_equals[i][j] = IsEqual();
+            bit_equals[i][j].in[0] <== new_geohash_bits_shared[j];
+            bit_equals[i][j].in[1] <== geohashes_bits_shared[i][j];
+            all_bits_equal_checks[i].in[j] <== bit_equals[i][j].out;
+        }
+        all_bits_equal[i] <== all_bits_equal_checks[i].out;
+    }
+
+    // Check if any of the prefixes match
+    component any_prefix_match = MultiOR(num_ips);
+    for (var i = 0; i < num_ips; i++) {
+        any_prefix_match.in[i] <== all_bits_equal[i];
+    }
+ 
+    // OLD APPROACH BASED ON NEIGHBOR CHECKS
+    // component is_new_geohash_neighbor = MultiOR(9 * num_ips);
+    // for (var i = 0; i < num_ips; i++) {
+    //     for (var d = 0; d < 9; d++) {
+    //         is_new_geohash_neighbor.in[i*9 + d] <== IsEqual()([new_geohash_neighbors[d], geohashes[i]]);
+    //     }
+    // }
+
+    // // Neighbors of the new geohash + the current geohash.
+    // // One of the current geohashes is expectedto be in this list.
+    // component neighbor_components[8];
+    // signal new_geohash_neighbors[9]; 
+    // for(var d = 0; d < 8; d++) {
+    //     neighbor_components[d] = Neighbor();
+    //     neighbor_components[d].hash <== new_geohash_bits;
+    //     neighbor_components[d].direction <== d;
+    //     neighbor_components[d].offset <== geohash_offset;
+    //     new_geohash_neighbors[d] <== Bits2Num(64)(neighbor_components[d].neighbor);
+    // }
+    // new_geohash_neighbors[8] <== new_geohash;
+
+    // component is_new_geohash_neighbor = MultiOR(9 * num_ips);
+    // for (var i = 0; i < num_ips; i++) {
+    //     for (var d = 0; d < 9; d++) {
+    //         is_new_geohash_neighbor.in[i*9 + d] <== IsEqual()([new_geohash_neighbors[d], geohashes[i]]);
+    //     }
+    // }
 
     // Compute values for responses
     component is_zero_for_distinct_count[num_ips];
@@ -344,9 +404,9 @@ template AttemptStateUpdate(num_ips) {
     signal distinct_ips_count <== num_ips - running_sum[num_ips - 1];
 
     signal is_ip_list_empty <== IsEqual()([distinct_ips_count, 0]);
-    signal valid_new_geohash <== OR()(is_new_geohash_neighbor.out, is_ip_list_empty);
+    signal valid_new_geohash <== OR()(any_prefix_match.out, is_ip_list_empty);
     
-    valid_new_geohash === 1;    
+    valid_new_geohash === 1;
 
     // Browser fingerprint check
     component fingerprint_similarity_score_calc = HashSimilarityScore(2);
@@ -354,12 +414,19 @@ template AttemptStateUpdate(num_ips) {
     fingerprint_similarity_score_calc.hash2 <== new_fingerprint;
     signal fingerprint_similarity <== fingerprint_similarity_score_calc.similarity_score;
 
-    var fingerprint_similarity_threshold = 300; // this is configurable.
+    // 90% similarity threshold
+    var fingerprint_similarity_threshold = 450;
+
+    // 80% similarity threshold
+    // var fingerprint_similarity_threshold = 400;
+
+    // 70% similarity threshold
+    // var fingerprint_similarity_threshold = 350;
+
     component similarity_score_checker = LessThan(10);
     similarity_score_checker.in[0] <== fingerprint_similarity_threshold;
     similarity_score_checker.in[1] <== fingerprint_similarity;
     similarity_score_checker.out === 1;
-
 
     // Produce RAPPOR response
     // Set up stuff
@@ -389,7 +456,8 @@ template AttemptStateUpdate(num_ips) {
     add_fingerprint_similarity_to_filter.new_value <== fingerprint_similarity;
     component add_geohash_distance_to_filter = AddToBloomFilter(num_hashes, num_bloombits, log_bloombits);
     add_geohash_distance_to_filter.initial_filter <== add_fingerprint_similarity_to_filter.new_filter;
-    add_geohash_distance_to_filter.new_value <== geohash_offset;
+    // add_geohash_distance_to_filter.new_value <== geohash_offset;
+    add_geohash_distance_to_filter.new_value <== geohash_shared_bits;
 
     component randomize_bloom_filter = IndividualRandomizedResponse(num_bloombits);
     randomize_bloom_filter.prr <== add_geohash_distance_to_filter.new_filter;

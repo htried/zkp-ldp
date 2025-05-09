@@ -10,7 +10,7 @@ template GeohashTest() {
     signal output bits[64];
     signal output chars[12];
     
-    component encoder = Geohash(32);
+    component encoder = Geohash();
     encoder.lat <== lat;
     encoder.lng <== lng;
     
