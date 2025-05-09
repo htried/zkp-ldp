@@ -314,17 +314,6 @@ export default function Home() {
       <div className="container py-5">
         <h1 className="text-3xl font-bold mb-4">Zero-Knowledge Credential Generator</h1>
         
-        <style jsx>{`
-          .orange-link {
-            color: #ff7b00;
-            text-decoration: underline;
-            transition: color 0.2s;
-          }
-          .orange-link:hover {
-            color: #ff9b3d;
-          }
-        `}</style>
-
         <div className="mb-4">
           <h2 className="text-xl font-semibold mb-2">Your current state</h2>
           <div className="list-group mb-4">
@@ -697,6 +686,32 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <footer className="bg-gray-800 border-t border-gray-700 py-6 mt-8">
+        <div className="container">
+          <div className="text-center text-gray-400 text-sm">
+            <p className="mb-2">
+              A work in progress being developed by{' '}
+              <a href="https://haltriedman.com" target="_blank" rel="noopener noreferrer" className="orange-link">Hal Triedman</a>
+              {', '}
+              <a href="https://www.sasha.place/" target="_blank" rel="noopener noreferrer" className="orange-link">Sasha Frolov</a>
+              {', and '}
+              <a href="https://www.cs.umd.edu/~imiers/" target="_blank" rel="noopener noreferrer" className="orange-link">Ian Miers</a>
+            </p>
+            <p className="mb-2">
+              <a href="https://github.com/htried/zkp-ldp" target="_blank" rel="noopener noreferrer" className="orange-link">
+                Source code on GitHub
+              </a>
+            </p>
+            <p>
+              Licensed under{' '}
+              <a href="https://github.com/htried/zkp-ldp/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="orange-link">
+                Apache License 2.0
+              </a>
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

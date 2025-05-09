@@ -146,4 +146,15 @@ code {
   line-height: 1;
   display: inline-block;
   vertical-align: middle;
+}
+
+/* Orange link styling */
+.orange-link {
+  color: #ff7b00;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.orange-link:hover {
+  color: #ff9b3d;
 } 
