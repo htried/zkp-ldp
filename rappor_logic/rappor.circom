@@ -206,7 +206,7 @@ template IndividualRandomizedResponse(num_bloombits) {
 
         q_probability_comparisons[i] = LessThan(probability_bits);
         q_probability_comparisons[i].in[0] <== q_chunks[i].out;
-        q_probability_comparisons[i].in[1] <== prob_p;
+        q_probability_comparisons[i].in[1] <== prob_q;
         q_bits[i] <== q_probability_comparisons[i].out;
     }
 

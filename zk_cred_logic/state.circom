@@ -312,10 +312,10 @@ template AttemptStateUpdate(num_ips) {
     // var geohash_shared_bits = 15;
 
     // 20 bits of precision = 4 shared 32-bit characters, aka bounding box ≤ 39.1km X 19.5km.
-    // var geohash_shared_bits = 20;
+    var geohash_shared_bits = 20;
 
     // 25 bits of precision = 5 shared 32-bit characters, aka bounding box ≤ 4.89km X 4.89km.
-    var geohash_shared_bits = 25;
+    // var geohash_shared_bits = 25;
 
     // Convert new geohash and old geohashes to bits
     signal new_geohash_bits[64] <== Num2Bits(64)(new_geohash);
@@ -415,13 +415,13 @@ template AttemptStateUpdate(num_ips) {
     signal fingerprint_similarity <== fingerprint_similarity_score_calc.similarity_score;
 
     // 90% similarity threshold
-    var fingerprint_similarity_threshold = 450;
+    // var fingerprint_similarity_threshold = 450;
 
     // 80% similarity threshold
     // var fingerprint_similarity_threshold = 400;
 
     // 70% similarity threshold
-    // var fingerprint_similarity_threshold = 350;
+    var fingerprint_similarity_threshold = 300;
 
     component similarity_score_checker = LessThan(10);
     similarity_score_checker.in[0] <== fingerprint_similarity_threshold;
