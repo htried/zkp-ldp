@@ -26,6 +26,18 @@ template Mux1_2Vals() {
     out[1] <== c * (a[1] - b[1]) + b[1];
 }
 
+// STATE STRUCT
+bus CredentialState(num_ips){
+    signal ips[num_ips];
+    signal geohashes[num_ips];
+    signal last_fingerprint[2];
+    signal users_prf_seed;
+    signal state_counter;
+    signal state_sig_r8x;
+    signal state_sig_r8y;
+    signal state_sig_s;
+}
+
 // ============== STATE MANAGEMENT FUNCTIONS =================
 
 // Checks that the initial state has a valid signature and outputs
