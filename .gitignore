@@ -1,5 +1,7 @@
 venv/
 
+zk_cred_logic/experiments/k*
+
 geolocation_logic/IP2LOCATION-LITE-DB5.CSV
 geolocation_logic/*.bin
 */__pycache__/
@@ -80,6 +82,7 @@ yarn-error.log*
 !test_cold_start.js
 !test_circom_state.js
 !server.js
+!zk_cred_logic/experiments/experiment_runner.js
 
 *-checkpoint.ipynb
 */node_modules/*

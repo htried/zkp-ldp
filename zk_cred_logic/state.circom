@@ -58,21 +58,26 @@ template ValidateInitialState(num_ips) {
     signal output nullifier;
 
     var len = num_ips + num_ips + 2 + 1 + 1;
-    component state_hasher = Poseidon(len);
+    signal state_hash_inputs[len];
     for (var i = 0; i < num_ips; i++) {
-        state_hasher.inputs[i] <== ips[i];
+        state_hash_inputs[i] <== ips[i];
     }
-    for (var i = num_ips; i < 2*num_ips; i++) {
-        state_hasher.inputs[i] <== geohashes[i - num_ips];
+    for (var i = 0; i < num_ips; i++) {
+        state_hash_inputs[num_ips + i] <== geohashes[i];
     }
-    state_hasher.inputs[2*num_ips] <== last_fingerprint[0];
-    state_hasher.inputs[2*num_ips + 1] <== last_fingerprint[1];
-    state_hasher.inputs[2*num_ips + 2] <== users_prf_seed;
-    state_hasher.inputs[2*num_ips + 3] <== state_counter;
+    state_hash_inputs[2*num_ips] <== last_fingerprint[0];
+    state_hash_inputs[2*num_ips + 1] <== last_fingerprint[1];
+    state_hash_inputs[2*num_ips + 2] <== users_prf_seed;
+    state_hash_inputs[2*num_ips + 3] <== state_counter;
+    component state_hasher = ChainedPoseidonHash(len);
+    state_hasher.in <== state_hash_inputs;
 
     component comm_hasher = Poseidon(2);
     comm_hasher.inputs[0] <== comm_rand;
     comm_hasher.inputs[1] <== state_hasher.out;
+
+    // log("comm_hasher.out");
+    // log(comm_hasher.out);
 
     // Verify initial state signature
     component initialVerifier = EdDSAPoseidonVerifier();
@@ -234,17 +239,19 @@ template CreateUpdatedState(num_ips) {
     }
     
     var len = num_ips + num_ips + 2 + 1 + 1;
-    component new_state_hasher = Poseidon(len);
+    signal new_state_hash_inputs[len];
     for (var i = 0; i < num_ips; i++) {
-        new_state_hasher.inputs[i] <== newState_ips[i];
+        new_state_hash_inputs[i] <== newState_ips[i];
     }
-    for (var i = num_ips; i < 2*num_ips; i++) {
-        new_state_hasher.inputs[i] <== newState_geohashes[i - num_ips];
+    for (var i = 0; i < num_ips; i++) {
+        new_state_hash_inputs[num_ips + i] <== newState_geohashes[i];
     }
-    new_state_hasher.inputs[2*num_ips] <== new_last_fingerprint[0];
-    new_state_hasher.inputs[2*num_ips + 1] <== new_last_fingerprint[1];
-    new_state_hasher.inputs[2*num_ips + 2] <== new_user_prf_seed;
-    new_state_hasher.inputs[2*num_ips + 3] <== new_state_counter;
+    new_state_hash_inputs[2*num_ips] <== new_last_fingerprint[0];
+    new_state_hash_inputs[2*num_ips + 1] <== new_last_fingerprint[1];
+    new_state_hash_inputs[2*num_ips + 2] <== new_user_prf_seed;
+    new_state_hash_inputs[2*num_ips + 3] <== new_state_counter;
+    component new_state_hasher = ChainedPoseidonHash(len);
+    new_state_hasher.in <== new_state_hash_inputs;
 
     component comm_hasher = Poseidon(2);
     comm_hasher.inputs[0] <== state_comm_randomness;
@@ -430,10 +437,10 @@ template AttemptStateUpdate(num_ips) {
     // var fingerprint_similarity_threshold = 450;
 
     // 80% similarity threshold
-    // var fingerprint_similarity_threshold = 400;
+    var fingerprint_similarity_threshold = 400;
 
     // 70% similarity threshold
-    var fingerprint_similarity_threshold = 300;
+    // var fingerprint_similarity_threshold = 300;
 
     component similarity_score_checker = LessThan(10);
     similarity_score_checker.in[0] <== fingerprint_similarity_threshold;
@@ -496,4 +503,51 @@ template AttemptStateUpdate(num_ips) {
     new_state_commitment <== updateState.new_state_commitment;
 }
 
-component main = AttemptStateUpdate(5);
+// component main = AttemptStateUpdate(5);
+
+// ============== CHAINED HASH FOR LONG INPUTS =================
+// Hashes an array using blocks of 15 inputs + previous hash per block
+template ChainedPoseidonHash(len) {
+    signal input in[len];
+    signal output out;
+
+    var num_blocks = (len \ 15) + (len % 15 != 0 ? 1 : 0);
+    component block_poseidon[num_blocks];
+
+    // Initialize all Poseidon components
+    for (var i = 0; i < num_blocks; i++) {
+        block_poseidon[i] = Poseidon(16);  // 15 inputs + 1 previous hash
+    }
+
+    // First block: just the first 15 inputs (or fewer if len < 15)
+    var first_block_size = len < 15 ? len : 15;
+    for (var i = 0; i < first_block_size; i++) {
+        block_poseidon[0].inputs[i] <== in[i];
+    }
+    // Pad first block with zeros if needed
+    for (var i = first_block_size; i < 15; i++) {
+        block_poseidon[0].inputs[i] <== 0;
+    }
+    block_poseidon[0].inputs[15] <== 0; // No previous hash for first block
+
+    // Subsequent blocks: 15 inputs + previous hash
+    for (var b = 1; b < num_blocks; b++) {
+        var start_idx = b * 15;
+        var remaining = len - start_idx;
+        var block_size = remaining < 15 ? remaining : 15;
+        
+        // Connect inputs
+        for (var i = 0; i < block_size; i++) {
+            block_poseidon[b].inputs[i] <== in[start_idx + i];
+        }
+        // Pad with zeros if needed
+        for (var i = block_size; i < 15; i++) {
+            block_poseidon[b].inputs[i] <== 0;
+        }
+        // Connect previous hash
+        block_poseidon[b].inputs[15] <== block_poseidon[b-1].out;
+    }
+
+    // Final output is the last block's hash
+    out <== block_poseidon[num_blocks-1].out;
+}
