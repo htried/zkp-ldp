@@ -1,5 +1,13 @@
 venv/
 
+zk_cred_streaming_logic/state_streaming_js/
+zk_cred_streaming_logic/state_streaming_cpp/
+zk_cred_streaming_logic/*.zkey
+zk_cred_streaming_logic/*.r1cs
+zk_cred_streaming_logic/*.sym
+zk_cred_streaming_logic/*.ptau
+zk_cred_streaming_logic/verification_key.json
+
 zk_cred_logic/experiments/k*
 
 geolocation_logic/IP2LOCATION-LITE-DB5.CSV
@@ -83,6 +91,7 @@ yarn-error.log*
 !test_circom_state.js
 !server.js
 !zk_cred_logic/experiments/experiment_runner.js
+!zk_cred_streaming_logic/experiments/experiment_runner_streaming.js
 
 *-checkpoint.ipynb
 */node_modules/*
