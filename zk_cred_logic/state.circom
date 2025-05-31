@@ -42,11 +42,12 @@ bus CredentialState(num_ips){
 
 // Checks that the initial state has a valid signature and outputs
 // a nullifier.
-template ValidateInitialState(num_ips) {
+template ValidateInitialState(num_ips, attribution_history_size) {
     // Initial signed state
     signal input ips[num_ips];
     signal input geohashes[num_ips];
     signal input last_fingerprint[2];
+    signal input attribution_history[attribution_history_size];
     signal input users_prf_seed;
     signal input state_counter; 
     signal input initial_state_r8x;
@@ -57,7 +58,7 @@ template ValidateInitialState(num_ips) {
 
     signal output nullifier;
 
-    var len = num_ips + num_ips + 2 + 1 + 1;
+    var len = num_ips + num_ips + attribution_history_size + 2 + 1 + 1;
     signal state_hash_inputs[len];
     for (var i = 0; i < num_ips; i++) {
         state_hash_inputs[i] <== ips[i];
@@ -65,10 +66,13 @@ template ValidateInitialState(num_ips) {
     for (var i = 0; i < num_ips; i++) {
         state_hash_inputs[num_ips + i] <== geohashes[i];
     }
-    state_hash_inputs[2*num_ips] <== last_fingerprint[0];
-    state_hash_inputs[2*num_ips + 1] <== last_fingerprint[1];
-    state_hash_inputs[2*num_ips + 2] <== users_prf_seed;
-    state_hash_inputs[2*num_ips + 3] <== state_counter;
+    for (var i = 2*num_ips; i < 2*num_ips + attribution_history_size; i++) {
+        state_hash_inputs[i] <== attribution_history[i - 2*num_ips];
+    }
+    state_hash_inputs[2*num_ips + attribution_history_size] <== last_fingerprint[0];
+    state_hash_inputs[2*num_ips + attribution_history_size + 1] <== last_fingerprint[1];
+    state_hash_inputs[2*num_ips + attribution_history_size + 2] <== users_prf_seed;
+    state_hash_inputs[2*num_ips + attribution_history_size + 3] <== state_counter;
     component state_hasher = ChainedPoseidonHash(len);
     state_hasher.in <== state_hash_inputs;
 
@@ -100,6 +104,7 @@ template ValidateServerResponse() {
     signal input new_ip;
     signal input new_geohash;
     signal input new_rappor_nonce;
+    signal input new_attribution_value;
     signal input server_response_r8x;
     signal input server_response_r8y;
     signal input server_response_s;
@@ -108,11 +113,12 @@ template ValidateServerResponse() {
 
     signal output nullifier;
 
-    var len = 1 + 1 + 1;
+    var len = 1 + 1 + 1 + 1;
     component response_hasher = Poseidon(len);
     response_hasher.inputs[0] <== new_ip;
     response_hasher.inputs[1] <== new_geohash;
     response_hasher.inputs[2] <== new_rappor_nonce;
+    response_hasher.inputs[3] <== new_attribution_value;
 
     // Verify initial state signature
     component responseVerifier = EdDSAPoseidonVerifier();
@@ -131,16 +137,18 @@ template ValidateServerResponse() {
 }
 
 // Does the logic to produce an updated state.
-template CreateUpdatedState(num_ips) {
+template CreateUpdatedState(num_ips, attribution_history_size) {
     // Old state
     signal input initialState_ips[num_ips];
     signal input initialState_geohashes[num_ips];
+    signal input attribution_history[attribution_history_size];
     signal input users_prf_seed;
     signal input state_counter;
     // Stuff to add to new state
     signal input new_ip;
     signal input new_geohash;
     signal input new_fingerprint[2];
+    signal input new_attribution_value;
     // Randomness for comm to new state:
     signal input state_comm_randomness;
 
@@ -150,6 +158,7 @@ template CreateUpdatedState(num_ips) {
     // Parts of the new state
     signal newState_ips[num_ips];
     signal newState_geohashes[num_ips];
+    signal newState_attribution_history[attribution_history_size];
     signal new_user_prf_seed <== users_prf_seed;
     signal new_last_fingerprint[2] <== new_fingerprint;
     signal new_state_counter <== state_counter + 1;
@@ -237,8 +246,12 @@ template CreateUpdatedState(num_ips) {
         newState_ips[i] <== mux3[i].out[0];
         newState_geohashes[i] <== mux3[i].out[1];
     }
-    
-    var len = num_ips + num_ips + 2 + 1 + 1;
+    newState_attribution_history[0] <== new_attribution_value;
+    for (var i = 1; i < attribution_history_size; i++) {
+        newState_attribution_history[i] <== attribution_history[i-1];
+    }
+
+    var len = num_ips + num_ips + attribution_history_size + 2 + 1 + 1;
     signal new_state_hash_inputs[len];
     for (var i = 0; i < num_ips; i++) {
         new_state_hash_inputs[i] <== newState_ips[i];
@@ -246,10 +259,13 @@ template CreateUpdatedState(num_ips) {
     for (var i = 0; i < num_ips; i++) {
         new_state_hash_inputs[num_ips + i] <== newState_geohashes[i];
     }
-    new_state_hash_inputs[2*num_ips] <== new_last_fingerprint[0];
-    new_state_hash_inputs[2*num_ips + 1] <== new_last_fingerprint[1];
-    new_state_hash_inputs[2*num_ips + 2] <== new_user_prf_seed;
-    new_state_hash_inputs[2*num_ips + 3] <== new_state_counter;
+    for (var i = 2*num_ips; i < 2*num_ips + attribution_history_size; i++) {
+        new_state_hash_inputs[i] <== newState_attribution_history[i - 2*num_ips];
+    }
+    new_state_hash_inputs[2*num_ips + attribution_history_size] <== new_last_fingerprint[0];
+    new_state_hash_inputs[2*num_ips + attribution_history_size + 1] <== new_last_fingerprint[1];
+    new_state_hash_inputs[2*num_ips + attribution_history_size + 2] <== new_user_prf_seed;
+    new_state_hash_inputs[2*num_ips + attribution_history_size + 3] <== new_state_counter;
     component new_state_hasher = ChainedPoseidonHash(len);
     new_state_hasher.in <== new_state_hash_inputs;
 
@@ -260,11 +276,12 @@ template CreateUpdatedState(num_ips) {
     new_state_commitment <== comm_hasher.out;
 }
 
-template AttemptStateUpdate(num_ips) {
+template AttemptStateUpdate(num_ips, attribution_history_size) {
     // Inputs corresponding to previous state
     signal input ips[num_ips];
     signal input geohashes[num_ips];
     signal input last_fingerprint[2];
+    signal input attribution_history[attribution_history_size];
     signal input users_prf_seed;
     signal input state_counter;
     signal input initial_state_r8x;
@@ -276,6 +293,7 @@ template AttemptStateUpdate(num_ips) {
     // The bits that the server provides are signed by the server.
     signal input new_ip;
     signal input new_geohash;
+    signal input new_attribution_value;
     signal input new_rappor_nonce;
     signal input new_user_info_r8x;
     signal input new_user_info_r8y;
@@ -298,9 +316,10 @@ template AttemptStateUpdate(num_ips) {
     signal output rappor_response;
 
     // Validate initial state and produce nullifier.
-    component initialStateValidator = ValidateInitialState(num_ips);
+    component initialStateValidator = ValidateInitialState(num_ips, attribution_history_size);
     initialStateValidator.ips <== ips;
     initialStateValidator.geohashes <== geohashes;
+    initialStateValidator.attribution_history <== attribution_history;
     initialStateValidator.last_fingerprint <== last_fingerprint;
     initialStateValidator.users_prf_seed <== users_prf_seed;
     initialStateValidator.state_counter <== state_counter;
@@ -315,6 +334,7 @@ template AttemptStateUpdate(num_ips) {
     component serverResponseValidator = ValidateServerResponse();
     serverResponseValidator.new_ip <== new_ip;
     serverResponseValidator.new_geohash <== new_geohash;
+    serverResponseValidator.new_attribution_value <== new_attribution_value;
     serverResponseValidator.new_rappor_nonce <== new_rappor_nonce;
     serverResponseValidator.server_response_r8x <== new_user_info_r8x;
     serverResponseValidator.server_response_r8y <== new_user_info_r8y;
@@ -447,6 +467,29 @@ template AttemptStateUpdate(num_ips) {
     similarity_score_checker.in[1] <== fingerprint_similarity;
     similarity_score_checker.out === 1;
 
+    // Search through attribution history for a single UUID
+    // signal search_value <== 123456;
+    // component history_match = MultiOR(attribution_history_size);
+    // for (var i = 0; i < attribution_history_size; i++) {
+    //     history_match.in[i] <== IsEqual()([search_value, attribution_history[i]]);
+    // }
+    // history_match.out === 0;
+
+    // Search for a chain of values in the attribution history for something.
+    // "Permission gating"/"History tracking" idea
+    var chain_search_length = 4; // Must be less than attribution history size
+    component overall_chain_search_match = MultiOR(attribution_history_size - chain_search_length);
+    signal search_chain_values[4] <== [15, 16, 17, 18];
+    component inner_loop_ors[attribution_history_size - chain_search_length];
+    for (var i = 0; i < attribution_history_size - chain_search_length; i++) {
+        inner_loop_ors[i] = MultiOR(chain_search_length);
+        for (var j = 0; j < chain_search_length; j++) {
+            inner_loop_ors[i].in[j] <== IsEqual()([search_chain_values[j], attribution_history[i + j]]);
+        }
+        overall_chain_search_match.in[i] <== inner_loop_ors[i].out;
+    }
+    overall_chain_search_match.out === 0;
+
     // Produce RAPPOR response
     // Set up stuff
     var num_hashes = 2;
@@ -489,13 +532,15 @@ template AttemptStateUpdate(num_ips) {
 
     // Produce updated state
     // Propose new state
-    component updateState = CreateUpdatedState(num_ips);
+    component updateState = CreateUpdatedState(num_ips, attribution_history_size);
     updateState.initialState_ips <== ips;
     updateState.initialState_geohashes <== geohashes;
+    updateState.attribution_history <== attribution_history;
     updateState.users_prf_seed <== users_prf_seed;
     updateState.state_counter <== state_counter;
     updateState.new_ip <== new_ip;
     updateState.new_geohash <== new_geohash;
+    updateState.new_attribution_value <== new_attribution_value;
     updateState.new_fingerprint <== new_fingerprint;
     updateState.state_comm_randomness <== state_comm_randomness;
 
@@ -503,7 +548,6 @@ template AttemptStateUpdate(num_ips) {
     new_state_commitment <== updateState.new_state_commitment;
 }
 
-// component main = AttemptStateUpdate(5);
 
 // ============== CHAINED HASH FOR LONG INPUTS =================
 // Hashes an array using blocks of 15 inputs + previous hash per block
@@ -551,3 +595,5 @@ template ChainedPoseidonHash(len) {
     // Final output is the last block's hash
     out <== block_poseidon[num_blocks-1].out;
 }
+
+// component main = AttemptStateUpdate(5, 10);

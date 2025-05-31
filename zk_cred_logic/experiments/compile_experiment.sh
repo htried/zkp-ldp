@@ -22,7 +22,7 @@ mkdir -p "$EXPERIMENT_DIR"
 cat > "$CIRCUIT_PATH" <<EOL
 pragma circom 2.2.0;
 include "../../state.circom";
-component main = AttemptStateUpdate($K);
+component main = AttemptStateUpdate(5, $K);
 EOL
 
 # 2. Compile the circuit

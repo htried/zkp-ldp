@@ -12,6 +12,7 @@ function getSuccessExample(k) {
     const geohashes = [
         "458442933798745700","458442933798745700","458442933798745700","458442933798745700","458442933798745700"
     ];
+    const history_uuids = [999999999999, 88888888888, 88888881222222, 758540842048104, 895701293857120948571];
     const fp = [
         "000000000000000000000000000000000000000000000000000000000000000000000000000",
         "11111111111111111111111111111111111111111111111111111111111111111111111111"
@@ -21,17 +22,20 @@ function getSuccessExample(k) {
     const new_fingerprint = fp;
 
     // Pad or slice to length k
-    const ips_k = Array(k).fill().map((_,i) => ips[i%5]);
-    const geohashes_k = Array(k).fill().map((_,i) => geohashes[i%5]);
+    const ips_k = Array(5).fill().map((_,i) => ips[i%5]);
+    const geohashes_k = Array(5).fill().map((_,i) => geohashes[i%5]);
+    const uuids_k = Array(k).fill().map((_,i) => history_uuids[i%5]);
     return {
         ips: ips_k,
         geohashes: geohashes_k,
+        attribution_history: uuids_k,
         last_fingerprint,
         users_prf_seed: "1111111111",
         state_counter: "3",
         initial_comm_rand: "1111111111111",
         new_ip: "3232235526",
         new_geohash: "458442947864549440",
+        new_attribution_value: "555555555555",
         new_rappor_nonce: "111111111",
         state_comm_randomness: "111111111",
         new_fingerprint
@@ -89,7 +93,7 @@ async function sign_circom_inputs(unsigned_input) {
     const F = babyJub.F;
     const prvKey = Buffer.from("0001020304050607080900010203040506070809000102030405060708090001", "hex");
     const pubKey = eddsa.prv2pub(prvKey);
-    const state_vec_string = unsigned_input.ips.concat(unsigned_input.geohashes).concat(unsigned_input.last_fingerprint.concat([unsigned_input.users_prf_seed, unsigned_input.state_counter]));
+    const state_vec_string = unsigned_input.ips.concat(unsigned_input.geohashes).concat(unsigned_input.attribution_history).concat(unsigned_input.last_fingerprint.concat([unsigned_input.users_prf_seed, unsigned_input.state_counter]));
     let state_hash = await chainedPoseidonHash(state_vec_string, poseidon);
     const comm_vec = [unsigned_input.initial_comm_rand, F_Poseidon.toObject(state_hash).toString()];
     let comm_hash = poseidon(comm_vec.map(x => poseidon.F.e(x)));
@@ -97,7 +101,7 @@ async function sign_circom_inputs(unsigned_input) {
     unsigned_input.initial_state_r8x = F.toObject(state_signature.R8[0]).toString();
     unsigned_input.initial_state_r8y = F.toObject(state_signature.R8[1]).toString();
     unsigned_input.initial_state_s = state_signature.S.toString();
-    const response_vec_string = [unsigned_input.new_ip, unsigned_input.new_geohash, unsigned_input.new_rappor_nonce];
+    const response_vec_string = [unsigned_input.new_ip, unsigned_input.new_geohash, unsigned_input.new_rappor_nonce, unsigned_input.new_attribution_value];
     let response_hash = poseidon(response_vec_string.map(x => poseidon.F.e(x)));
     const response_signature = eddsa.signPoseidon(prvKey, response_hash);
     unsigned_input.new_user_info_r8x = F.toObject(response_signature.R8[0]).toString();
