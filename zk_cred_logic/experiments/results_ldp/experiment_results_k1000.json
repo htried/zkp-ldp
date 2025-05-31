@@ -640,22 +640,6 @@
     "verifyError": null
   },
   {
-    "run": 80,
-    "proveTimeMs": 551544.831687,
-    "verifyTimeMs": 11.009472,
-    "verified": true,
-    "proveError": null,
-    "verifyError": null
-  },
-  {
-    "run": 81,
-    "proveTimeMs": 89038.105909,
-    "verifyTimeMs": 10.22861,
-    "verified": true,
-    "proveError": null,
-    "verifyError": null
-  },
-  {
     "run": 82,
     "proveTimeMs": 18757.243246,
     "verifyTimeMs": 12.065719,
