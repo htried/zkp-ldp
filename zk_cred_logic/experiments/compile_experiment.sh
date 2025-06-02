@@ -14,7 +14,8 @@ CIRCUIT_NAME="state"
 EXPERIMENT_DIR="$(dirname "$0")/k${K}"
 EXPERIMENT_PARENT_DIR="$(dirname "$0")"
 CIRCUIT_PATH="$EXPERIMENT_DIR/${CIRCUIT_NAME}.circom"
-CONSTRAINTS_CSV_PATH="$(dirname "$0")/constraints.csv"
+# CONSTRAINTS_CSV_PATH="$(dirname "$0")/constraints.csv"
+CONSTRAINTS_CSV_PATH="$(dirname "$0")/constraints_attribution.csv"
 
 mkdir -p "$EXPERIMENT_DIR"
 
