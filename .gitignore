@@ -7,6 +7,24 @@ geolocation_logic/*.bin
 */__pycache__/
 *.pyc
 
+zk_cred_streaming_logic/circomlib/
+zk_cred_streaming_logic/*_cpp/
+zk_cred_streaming_logic/*_js/
+zk_cred_streaming_logic/ecdsa/
+zk_cred_streaming_logic/proofs/
+zk_cred_streaming_logic/publics/
+zk_cred_streaming_logic/witnesses/
+zk_cred_streaming_logic/*.sym
+zk_cred_streaming_logic/*.r1cs
+zk_cred_streaming_logic/*.wasm
+zk_cred_streaming_logic/input.json
+zk_cred_streaming_logic/verification_key.json
+zk_cred_streaming_logic/proof.json
+zk_cred_streaming_logic/public.json
+zk_cred_streaming_logic/*.wtns
+zk_cred_streaming_logic/*.ptau
+zk_cred_streaming_logic/*.zkey
+
 zk_cred_logic/circomlib/
 zk_cred_logic/*_cpp/
 zk_cred_logic/*_js/
@@ -17,7 +35,6 @@ zk_cred_logic/witnesses/
 zk_cred_logic/*.sym
 zk_cred_logic/*.r1cs
 zk_cred_logic/*.wasm
-
 zk_cred_logic/input.json
 zk_cred_logic/verification_key.json
 zk_cred_logic/proof.json
