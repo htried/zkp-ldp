@@ -1,0 +1,13 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "src/assets/fonts/Advercase-Regular.otf",
+      "sha1": "727727cc90e1c3f5aa841c4b0f357deb890b43bb"
+    },
+    {
+      "path": "src/assets/fonts/DINOT-Medium.otf",
+      "sha1": "e993d15a13bc4e2c66dac255d7fa569486345f88"
+    }
+  ]
+}
