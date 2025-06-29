@@ -6,4 +6,4 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-circom "$1".circom --r1cs --wasm --sym --c
+circom "$1".circom --r1cs --wasm --sym --c -l ../self/node_modules -l ../self/node_modules/@zk-kit/binary-merkle-root.circom/src -l ../self/node_modules/circomlib/circuits

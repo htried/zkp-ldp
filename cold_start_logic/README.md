@@ -3,6 +3,6 @@ This is a smaller circuit which produces an initial state for a ``cold start'' (
 
 ## Running the code
 
-1. Compile the circuit: `./shell/01_compile_circuit.sh state`
+1. Compile the circuit: `./shell/01_compile_circuit.sh cold_start`
 2. Run the powers of tau ceremony (this takes a while and requires some user-generated entropy): `./shell/02_powers_of_tau.sh state`
 3. Node.
