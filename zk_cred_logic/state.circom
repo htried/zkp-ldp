@@ -27,10 +27,12 @@ template Mux1_2Vals() {
 }
 
 // STATE STRUCT
+
 bus CredentialState(num_ips){
     signal ips[num_ips];
     signal geohashes[num_ips];
     signal last_fingerprint[2];
+    signal year_of_birth[2];
     signal users_prf_seed;
     signal state_counter;
     signal state_sig_r8x;
@@ -47,6 +49,7 @@ template ValidateInitialState(num_ips) {
     signal input ips[num_ips];
     signal input geohashes[num_ips];
     signal input last_fingerprint[2];
+    signal input yob[2];
     signal input users_prf_seed;
     signal input state_counter; 
     signal input initial_state_r8x;
@@ -57,7 +60,7 @@ template ValidateInitialState(num_ips) {
 
     signal output nullifier;
 
-    var len = num_ips + num_ips + 2 + 1 + 1;
+    var len = num_ips + num_ips + 2 + 2 + 1 + 1;
     signal state_hash_inputs[len];
     for (var i = 0; i < num_ips; i++) {
         state_hash_inputs[i] <== ips[i];
@@ -67,8 +70,10 @@ template ValidateInitialState(num_ips) {
     }
     state_hash_inputs[2*num_ips] <== last_fingerprint[0];
     state_hash_inputs[2*num_ips + 1] <== last_fingerprint[1];
-    state_hash_inputs[2*num_ips + 2] <== users_prf_seed;
-    state_hash_inputs[2*num_ips + 3] <== state_counter;
+    state_hash_inputs[2*num_ips + 2] <== yob[0];
+    state_hash_inputs[2*num_ips + 3] <== yob[1];
+    state_hash_inputs[2*num_ips + 4] <== users_prf_seed;
+    state_hash_inputs[2*num_ips + 5] <== state_counter;
     component state_hasher = ChainedPoseidonHash(len);
     state_hasher.in <== state_hash_inputs;
 
@@ -135,6 +140,7 @@ template CreateUpdatedState(num_ips) {
     // Old state
     signal input initialState_ips[num_ips];
     signal input initialState_geohashes[num_ips];
+    signal input yob[2];
     signal input users_prf_seed;
     signal input state_counter;
     // Stuff to add to new state
@@ -238,7 +244,7 @@ template CreateUpdatedState(num_ips) {
         newState_geohashes[i] <== mux3[i].out[1];
     }
     
-    var len = num_ips + num_ips + 2 + 1 + 1;
+    var len = num_ips + num_ips + 2 + 2 + 1 + 1;
     signal new_state_hash_inputs[len];
     for (var i = 0; i < num_ips; i++) {
         new_state_hash_inputs[i] <== newState_ips[i];
@@ -248,8 +254,10 @@ template CreateUpdatedState(num_ips) {
     }
     new_state_hash_inputs[2*num_ips] <== new_last_fingerprint[0];
     new_state_hash_inputs[2*num_ips + 1] <== new_last_fingerprint[1];
-    new_state_hash_inputs[2*num_ips + 2] <== new_user_prf_seed;
-    new_state_hash_inputs[2*num_ips + 3] <== new_state_counter;
+    new_state_hash_inputs[2*num_ips + 2] <== yob[0];
+    new_state_hash_inputs[2*num_ips + 3] <== yob[1];
+    new_state_hash_inputs[2*num_ips + 4] <== new_user_prf_seed;
+    new_state_hash_inputs[2*num_ips + 5] <== new_state_counter;
     component new_state_hasher = ChainedPoseidonHash(len);
     new_state_hasher.in <== new_state_hash_inputs;
 
@@ -265,6 +273,7 @@ template AttemptStateUpdate(num_ips) {
     signal input ips[num_ips];
     signal input geohashes[num_ips];
     signal input last_fingerprint[2];
+    signal input yob[2];
     signal input users_prf_seed;
     signal input state_counter;
     signal input initial_state_r8x;
@@ -302,6 +311,7 @@ template AttemptStateUpdate(num_ips) {
     initialStateValidator.ips <== ips;
     initialStateValidator.geohashes <== geohashes;
     initialStateValidator.last_fingerprint <== last_fingerprint;
+    initialStateValidator.yob <== yob;
     initialStateValidator.users_prf_seed <== users_prf_seed;
     initialStateValidator.state_counter <== state_counter;
     initialStateValidator.initial_state_r8x <== initial_state_r8x;
@@ -492,6 +502,7 @@ template AttemptStateUpdate(num_ips) {
     component updateState = CreateUpdatedState(num_ips);
     updateState.initialState_ips <== ips;
     updateState.initialState_geohashes <== geohashes;
+    updateState.yob <== yob;
     updateState.users_prf_seed <== users_prf_seed;
     updateState.state_counter <== state_counter;
     updateState.new_ip <== new_ip;
@@ -502,8 +513,6 @@ template AttemptStateUpdate(num_ips) {
     // Output
     new_state_commitment <== updateState.new_state_commitment;
 }
-
-// component main = AttemptStateUpdate(5);
 
 // ============== CHAINED HASH FOR LONG INPUTS =================
 // Hashes an array using blocks of 15 inputs + previous hash per block
@@ -551,3 +560,5 @@ template ChainedPoseidonHash(len) {
     // Final output is the last block's hash
     out <== block_poseidon[num_blocks-1].out;
 }
+
+component main = AttemptStateUpdate(5);

@@ -53,7 +53,7 @@ template InitializeEmptyState(num_ips) {
     signal output passport_nullifier;
     signal output passport_commitment;
 
-    var len = num_ips + num_ips + 2 + 1 + 1;
+    var len = num_ips + num_ips + 2 + 2 + 1 + 1;
     component state_hasher = Poseidon(len);
 
     // Add empty IP list to the state
@@ -66,8 +66,10 @@ template InitializeEmptyState(num_ips) {
     }
     state_hasher.inputs[2*num_ips] <== fingerprint[0];
     state_hasher.inputs[2*num_ips + 1] <== fingerprint[1];
-    state_hasher.inputs[2*num_ips + 2] <== users_prf_seed;
-    state_hasher.inputs[2*num_ips + 3] <== 0; // the state counter, starts at 0
+    state_hasher.inputs[2*num_ips + 2] <== dg1[62]; // bytes for year of birth.
+    state_hasher.inputs[2*num_ips + 3] <== dg1[63];
+    state_hasher.inputs[2*num_ips + 4] <== users_prf_seed;
+    state_hasher.inputs[2*num_ips + 5] <== 0; // the state counter, starts at 0
 
     component comm_hasher = Poseidon(2);
     comm_hasher.inputs[0] <== initial_comm_rand;
