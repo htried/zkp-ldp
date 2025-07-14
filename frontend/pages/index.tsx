@@ -221,7 +221,7 @@ export default function Home() {
 
     setVerificationStatus('Verifying...');
     try {
-      const startTime = performance.now();
+      // const startTime = performance.now();
       
       // Store original state before verification
       setOriginalState({
@@ -278,19 +278,21 @@ export default function Home() {
         }
       });
 
-      const provingEndTime = performance.now();
-      setProvingTime(provingEndTime - startTime);
+      // const provingEndTime = performance.now();
+      // setProvingTime(provingEndTime - startTime);
 
       // Now verify the state update
-      const verifyStartTime = performance.now();
-      const isValid = await verifyStateUpdate(signedInput, circuitPath);
-      const verifyEndTime = performance.now();
-      setVerifyingTime(verifyEndTime - verifyStartTime);
+      // const verifyStartTime = performance.now();
+      const {res, proofTime, verifyTime} = await verifyStateUpdate(signedInput, circuitPath);
+      // const verifyEndTime = performance.now();
+      // setVerifyingTime(verifyEndTime - verifyStartTime);
       
-      setVerificationStatus(isValid ? 'Verification successful!' : 'Verification failed');
+      setVerificationStatus(res ? 'Verification successful!' : 'Verification failed');
+      setProvingTime(proofTime);
+      setVerifyingTime(verifyTime);
 
       // If verification is successful, update the stored state
-      if (isValid) {
+      if (res) {
         updateStoredState(
           currentState.fingerprint,
           currentState.location.geohash,
@@ -306,13 +308,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <Head>
-        <title>Zero-Knowledge Credential Generator</title>
+        <title>Zero-Knowledge Cookie Demonstration</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Script src="https://cdn.jsdelivr.net/npm/snarkjs@0.7.5/build/snarkjs.min.js" strategy="beforeInteractive" />
 
       <div className="container py-5">
-        <h1 className="text-3xl font-bold mb-4">Zero-Knowledge Credential Generator</h1>
+        <h1 className="text-3xl font-bold mb-4">Zero-Knowledge Cookie Demonstration</h1>
         
         <div className="mb-4">
           <h2 className="text-xl font-semibold mb-2">Your current state</h2>
@@ -374,7 +376,7 @@ export default function Home() {
 
         <div className="row">
           <div className="col-12 mb-4">
-            <h2 className="text-2xl font-bold mb-2">Your zero-knowledge credential history</h2>
+            <h2 className="text-2xl font-bold mb-2">Your zero-knowledge cookie history</h2>
           </div>
 
           <div className="col-md-4 mb-4">
@@ -483,7 +485,7 @@ export default function Home() {
                     disabled={loading || !currentState.fingerprint}
                     className="btn btn-primary"
                   >
-                    {loading ? 'Generating...' : 'Generate Credential History'}
+                    {loading ? 'Generating...' : 'Generate Cookie History'}
                   </button>
                 </div>
               </div>
@@ -669,7 +671,7 @@ export default function Home() {
         <div className="mb-4">
           <h2 className="text-xl font-semibold mb-2">How this works</h2>
           <div className="bg-gray-800 p-4 rounded mb-4">
-            <p className="mb-2">This demo website shows how <a href="https://en.wikipedia.org/wiki/Zero-knowledge_proof" target="_blank" rel="noopener noreferrer" className="orange-link">zero-knowledge proof</a>-based <a href='https://eprint.iacr.org/2022/878.pdf' target='_blank' rel='noopener noreferrer' className="orange-link">anonymous credentials</a> can verify that a user's state is within normal parameters while maintaining privacy. All data is generated and stored locally in your browser's local storage. We envision this being used for a wide range of applications, for example:</p>
+            <p className="mb-2">This demo website shows how <a href="https://en.wikipedia.org/wiki/Zero-knowledge_proof" target="_blank" rel="noopener noreferrer" className="orange-link">zero-knowledge proof</a>-based anonymous credentials can verify that a user's state is within normal parameters while maintaining privacy. All data is generated and stored locally in your browser's local storage. We envision this being used for a wide range of applications, for example:</p>
             <ul className="list-disc pl-4 space-y-2">
               <li>Verifying that a user is logging in from a location that they've previously logged-in from</li>
               <li>Verifying that the current device that they're using is similar to a device that they've used in the past</li>
@@ -687,7 +689,7 @@ export default function Home() {
         </div>
       </div>
 
-      <footer className="bg-gray-800 border-t border-gray-700 py-6 mt-8">
+      {/* <footer className="bg-gray-800 border-t border-gray-700 py-6 mt-8">
         <div className="container">
           <div className="text-center text-gray-400 text-sm">
             <p className="mb-2">
@@ -711,7 +713,7 @@ export default function Home() {
             </p>
           </div>
         </div>
-      </footer>
+      </footer> */}
     </div>
   );
 }

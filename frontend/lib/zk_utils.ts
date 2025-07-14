@@ -86,32 +86,39 @@ export async function sign_circom_inputs(unsigned_input: UnsignedInput): Promise
  * @param input The input data to verify
  * @returns Promise that resolves to true if verification succeeds
  */
-export async function verifyStateUpdate(input: UnsignedInput, config_path: string): Promise<boolean> {
+export async function verifyStateUpdate(input: UnsignedInput, config_path: string): Promise<{res: boolean, proofTime: number, verifyTime: number}> {
   try {
     // Sign the input data
     const signedInput = await sign_circom_inputs(input);
 
     // Generate proof using the circuit
+    const proofStartTime = performance.now();
     const { proof, publicSignals } = await window.snarkjs.groth16.fullProve(
       signedInput,
       config_path + "/state.wasm",
       config_path + "/state_0001.zkey"
     );
+    const proofEndTime = performance.now();
 
-    console.log("publicSignals", publicSignals);
-    console.log("proof", proof);
-
+    const verifyStartTime = performance.now();
     // Load verification key
     const vKey = await fetch(config_path + "/verification_key.json").then(res => res.json());
-    console.log("vKey", vKey);
 
     // Verify the proof
     const res = await window.snarkjs.groth16.verify(vKey, publicSignals, proof);
-    console.log("res", res);
 
-    return res === true;
+    const verifyEndTime = performance.now();
+    return {
+      res: res === true,
+      proofTime: proofEndTime - proofStartTime,
+      verifyTime: verifyEndTime - verifyStartTime
+    };
   } catch (error) {
     console.error("Verification failed:", error);
-    return false;
+    return {
+      res: false,
+      proofTime: 0,
+      verifyTime: 0
+    };
   }
 }
