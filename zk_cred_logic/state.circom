@@ -27,10 +27,11 @@ template Mux1_2Vals() {
 }
 
 // STATE STRUCT
-bus CredentialState(num_ips){
+bus CredentialState(num_ips, attribution_history_size){
     signal ips[num_ips];
     signal geohashes[num_ips];
     signal last_fingerprint[2];
+    signal attribution_history[attribution_history_size];
     signal users_prf_seed;
     signal state_counter;
     signal state_sig_r8x;
