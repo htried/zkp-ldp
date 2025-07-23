@@ -498,6 +498,9 @@ template AttemptStateUpdate(num_ips) {
     rappor_response <== irr_to_num.out;
 
     // Check that yob implies that user is over 18.
+    // This looks slightly weird, the reason is that Year of Birth is encoded as 
+    // 2 ASCII bytes of the digit values. The default value in the test data is 00
+    // for 2000, so 48, 48.s
     signal yob_0_digit <== yob[0] - 48;
     signal yob_1_digit <== yob[1] - 48;
     signal yob_2_digit_value <== yob_0_digit * 10 + yob_1_digit;
