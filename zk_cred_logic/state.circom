@@ -497,6 +497,30 @@ template AttemptStateUpdate(num_ips) {
     irr_to_num.in <== randomize_bloom_filter.irr;
     rappor_response <== irr_to_num.out;
 
+    // Check that yob implies that user is over 18.
+    signal yob_0_digit <== yob[0] - 48;
+    signal yob_1_digit <== yob[1] - 48;
+    signal yob_2_digit_value <== yob_0_digit * 10 + yob_1_digit;
+
+    // Sanity check that yob is below 100.
+    component yob_range_check = LessThan(7);
+    yob_range_check.in[0] <== yob_2_digit_value;
+    yob_range_check.in[1] <== 100;
+    yob_range_check.out === 1;
+
+    // If you were born before 2007, it would be 07 and thus you are of age.
+    component yob_21st_century_of_age = LessThan(7);
+    yob_21st_century_of_age.in[0] <== yob_2_digit_value;
+    yob_21st_century_of_age.in[1] <== 7;
+
+    // If you were born before after 1926, it would be 26+ and thus you are of age.
+    component yob_20th_century_of_age = LessThan(7);
+    yob_20th_century_of_age.in[0] <== 25;
+    yob_20th_century_of_age.in[1] <== yob_2_digit_value;
+
+    signal of_age <== OR()(yob_20th_century_of_age.out, yob_21st_century_of_age.out);
+    of_age === 1;
+
     // Produce updated state
     // Propose new state
     component updateState = CreateUpdatedState(num_ips);
