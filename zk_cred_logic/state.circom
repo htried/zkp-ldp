@@ -588,4 +588,4 @@ template ChainedPoseidonHash(len) {
     out <== block_poseidon[num_blocks-1].out;
 }
 
-component main = AttemptStateUpdate(5);
+// component main = AttemptStateUpdate(5);

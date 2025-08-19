@@ -5,11 +5,12 @@
 set -e
 
 if [ -z "$1" ]; then
-    echo "Usage: $0 <state_length>"
+    echo "Usage: $0 <state_length> <ldp>"
     exit 1
 fi
 
 K=$1
+ldp=$2
 CIRCUIT_NAME="state"
 EXPERIMENT_DIR="$(dirname "$0")/k${K}"
 EXPERIMENT_PARENT_DIR="$(dirname "$0")"
@@ -25,8 +26,9 @@ include "../../state.circom";
 component main = AttemptStateUpdate($K);
 EOL
 
-# 2. Compile the circuit
-circom "$CIRCUIT_PATH" --r1cs --wasm --sym --c -o "$EXPERIMENT_DIR"
+# 2. Compile the circuit and capture output
+echo "Compiling circuit with circom..."
+CIRCOM_OUTPUT=$(circom "$CIRCUIT_PATH" --r1cs --wasm --sym --c -o "$EXPERIMENT_DIR" 2>&1 | tee /dev/tty)
 
 R1CS_FILE="$EXPERIMENT_DIR/${CIRCUIT_NAME}.r1cs"
 
@@ -36,21 +38,34 @@ if [ -f "$CONSTRAINTS_CSV_PATH" ]; then
     # Try to find the row for the given k
     CSV_ROW=$(awk -F, -v k="$K" 'NR>1 && $1==k {print $0}' "$CONSTRAINTS_CSV_PATH")
     if [ ! -z "$CSV_ROW" ]; then
-        NON_LINEAR=$(echo "$CSV_ROW" | awk -F, '{print $3}')
-        LINEAR=$(echo "$CSV_ROW" | awk -F, '{print $4}')
-        NUM_CONSTRAINTS=$((NON_LINEAR + LINEAR))
-        echo "Using constraints.csv: k=$K, non-linear=$NON_LINEAR, linear=$LINEAR, total=$NUM_CONSTRAINTS"
+        NUM_CONSTRAINTS=$(echo "$CSV_ROW" | awk -F, '{print $2}')
+        echo "Using constraints.csv: k=$K, total=$NUM_CONSTRAINTS"
     fi
 fi
 
-# If not found in constraints.csv, export constraints and compute
+# If not found in constraints.csv, parse circom output for constraints
 if [ -z "$NUM_CONSTRAINTS" ]; then
-    CONSTRAINTS_CSV="$EXPERIMENT_DIR/${CIRCUIT_NAME}_constraints.csv"
-    if [ ! -f "$CONSTRAINTS_CSV" ]; then
-        snarkjs r1cs export csv "$R1CS_FILE" "$CONSTRAINTS_CSV"
+    # Extract non-linear and linear constraints from circom output
+    # Use more specific patterns to avoid overlap
+    NON_LINEAR=$(echo "$CIRCOM_OUTPUT" | grep -i "^.*non-linear constraints:" | head -1 | awk -F: '{gsub(/ /,"",$2); print $2}')
+    LINEAR=$(echo "$CIRCOM_OUTPUT" | grep -i "^.*linear constraints:" | grep -v "non-linear" | head -1 | awk -F: '{gsub(/ /,"",$2); print $2}')
+    
+    # Remove any non-digit characters and ensure we have valid numbers
+    NON_LINEAR_NUM=$(echo "$NON_LINEAR" | tr -cd '0-9')
+    LINEAR_NUM=$(echo "$LINEAR" | tr -cd '0-9')
+        
+    # Check if we have valid numbers and convert to integers
+    if [[ -n "$NON_LINEAR_NUM" && -n "$LINEAR_NUM" && "$NON_LINEAR_NUM" =~ ^[0-9]+$ && "$LINEAR_NUM" =~ ^[0-9]+$ ]]; then
+        # Force conversion to integers using arithmetic expansion
+        NUM_CONSTRAINTS=$((10#$NON_LINEAR_NUM + 10#$LINEAR_NUM))
+        echo "Using circom output: total=$NUM_CONSTRAINTS"
+        echo "$K,$NUM_CONSTRAINTS,$ldp" >> "$CONSTRAINTS_CSV_PATH"
+    else
+        echo "Error: Could not determine constraint counts from circom output."
+        echo "Circom output:"
+        echo "$CIRCOM_OUTPUT"
+        exit 1
     fi
-    NUM_CONSTRAINTS=$(awk -F, 'NR>1 {sum += $2 + $3} END {print sum}' "$CONSTRAINTS_CSV")
-    echo "Using exported constraints.csv: total=$NUM_CONSTRAINTS"
 fi
 
 # Compute next power of two
@@ -76,8 +91,9 @@ power_of_two_exponent() {
 
 POT_SIZE=$(next_power_of_two $NUM_CONSTRAINTS)
 POT_EXP=$(power_of_two_exponent $POT_SIZE)
+# POT_EXP=16
 PTAU_URL="https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_${POT_EXP}.ptau"
-PTAU_FILE="$EXPERIMENT_DIR/pot${POT_EXP}_final.ptau"
+PTAU_FILE="../pots/pot${POT_EXP}_final.ptau"
 
 # Download ptau file if not present
 if [ ! -f "$PTAU_FILE" ]; then

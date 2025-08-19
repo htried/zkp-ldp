@@ -92,6 +92,7 @@ yarn-error.log*
 !server.js
 !zk_cred_logic/experiments/experiment_runner.js
 !zk_cred_streaming_logic/experiments/experiment_runner_streaming.js
+!zk_cred_logic/experiments/generate_inputs.js
 
 *-checkpoint.ipynb
 */node_modules/*
@@ -114,3 +115,5 @@ rappor_logic/public.json
 rappor_logic/*.wtns
 rappor_logic/*.ptau
 rappor_logic/*.zkey
+
+pots/
