@@ -93,6 +93,20 @@ yarn-error.log*
 !zk_cred_logic/experiments/experiment_runner.js
 !zk_cred_streaming_logic/experiments/experiment_runner_streaming.js
 !zk_cred_logic/experiments/generate_inputs.js
+!cold_start_logic/input.json
+!zk_cred_logic/experiments/generate_inputs.js
+!go_credential_server/circom_stuff/state_js/generate_witness.js
+!go_credential_server/circom_stuff/state_js/witness_calculator.js
+go_credential_server/circom_stuff/proof.json
+go_credential_server/circom_stuff/public.json
+go_credential_server/circom_stuff/witness.wtns
+go_credential_server/go.sum
+go_credential_server/credential_server
+
+go_credential_server/nullifier_db
+pots/
+zk_cred_logic/experiments/prover
+zk_cred_logic/experiments/verifier
 
 *-checkpoint.ipynb
 */node_modules/*

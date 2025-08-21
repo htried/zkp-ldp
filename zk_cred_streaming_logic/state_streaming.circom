@@ -7,6 +7,7 @@ include "../circomlib/circuits/poseidon.circom";
 include "../circomlib/circuits/babyjub.circom";
 include "../circomlib/circuits/eddsaposeidon.circom";
 include "../rappor_logic/rappor.circom";
+// include "../circomlib/circuits/logic.circom";
 
 // ============== STREAMING STATE STRUCT =================
 bus StreamingCredentialState() {
@@ -14,6 +15,7 @@ bus StreamingCredentialState() {
     signal state_counter;
     signal avg_geohash;
     signal last_fingerprint[2];
+    signal yob[2];
     signal users_prf_seed;
     signal state_sig_r8x;
     signal state_sig_r8y;
@@ -28,6 +30,7 @@ template ValidateInitialStreamingState() {
     signal input state_counter;
     signal input avg_geohash;
     signal input last_fingerprint[2];
+    signal input yob[2];
     signal input users_prf_seed;
     signal input initial_state_r8x;
     signal input initial_state_r8y;
@@ -37,15 +40,17 @@ template ValidateInitialStreamingState() {
     signal output nullifier;
 
     // Hash the state fields (include avg_geohash)
-    signal state_hash_inputs[6];
+    signal state_hash_inputs[8];
     state_hash_inputs[0] <== geohash_sum;
     state_hash_inputs[1] <== state_counter;
     state_hash_inputs[2] <== avg_geohash;
     state_hash_inputs[3] <== last_fingerprint[0];
     state_hash_inputs[4] <== last_fingerprint[1];
-    state_hash_inputs[5] <== users_prf_seed;
-    component state_hasher = Poseidon(6);
-    for (var i = 0; i < 6; i++) {
+    state_hash_inputs[5] <== yob[0];
+    state_hash_inputs[6] <== yob[1];
+    state_hash_inputs[7] <== users_prf_seed;
+    component state_hasher = Poseidon(8);
+    for (var i = 0; i < 8; i++) {
         state_hasher.inputs[i] <== state_hash_inputs[i];
     }
 
@@ -74,6 +79,7 @@ template ValidateServerStreamingResponse() {
     signal input server_response_r8y;
     signal input server_response_s;
     signal input users_prf_seed;
+    signal input yob[2];
 
     signal output nullifier;
 
@@ -103,6 +109,7 @@ template CreateUpdatedStreamingState() {
     signal input state_counter;
     signal input users_prf_seed;
     signal input last_fingerprint[2];
+    signal input yob[2];
     // New data
     signal input new_geohash;
     signal input new_fingerprint[2];
@@ -131,15 +138,17 @@ template CreateUpdatedStreamingState() {
     rem_lt.out === 1;
 
     // Output state commitment (include avg_geohash)
-    signal state_hash_inputs[6];
+    signal state_hash_inputs[8];
     state_hash_inputs[0] <== new_geohash_sum;
     state_hash_inputs[1] <== new_state_counter;
     state_hash_inputs[2] <== avg_geohash;
     state_hash_inputs[3] <== new_last_fingerprint[0];
     state_hash_inputs[4] <== new_last_fingerprint[1];
-    state_hash_inputs[5] <== users_prf_seed;
-    component state_hasher = Poseidon(6);
-    for (var i = 0; i < 6; i++) {
+    state_hash_inputs[5] <== yob[0];
+    state_hash_inputs[6] <== yob[1];
+    state_hash_inputs[7] <== users_prf_seed;
+    component state_hasher = Poseidon(8);
+    for (var i = 0; i < 8; i++) {
         state_hasher.inputs[i] <== state_hash_inputs[i];
     }
     component comm_hasher = Poseidon(2);
@@ -155,6 +164,7 @@ template AttemptStreamingStateUpdate() {
     signal input state_counter;
     signal input avg_geohash;
     signal input last_fingerprint[2];
+    signal input yob[2];
     signal input users_prf_seed;
     signal input initial_state_r8x;
     signal input initial_state_r8y;
@@ -187,6 +197,7 @@ template AttemptStreamingStateUpdate() {
     initialStateValidator.state_counter <== state_counter;
     initialStateValidator.avg_geohash <== avg_geohash;
     initialStateValidator.last_fingerprint <== last_fingerprint;
+    initialStateValidator.yob <== yob;
     initialStateValidator.users_prf_seed <== users_prf_seed;
     initialStateValidator.initial_state_r8x <== initial_state_r8x;
     initialStateValidator.initial_state_r8y <== initial_state_r8y;
@@ -201,6 +212,7 @@ template AttemptStreamingStateUpdate() {
     serverResponseValidator.server_response_r8x <== new_user_info_r8x;
     serverResponseValidator.server_response_r8y <== new_user_info_r8y;
     serverResponseValidator.server_response_s <== new_user_info_s;
+    serverResponseValidator.yob <== yob;
     serverResponseValidator.users_prf_seed <== users_prf_seed;
     server_response_nullifier <== serverResponseValidator.nullifier;
 
@@ -232,6 +244,7 @@ template AttemptStreamingStateUpdate() {
     component updateState = CreateUpdatedStreamingState();
     updateState.geohash_sum <== geohash_sum;
     updateState.state_counter <== state_counter;
+    updateState.yob <== yob;
     updateState.users_prf_seed <== users_prf_seed;
     updateState.last_fingerprint <== last_fingerprint;
     updateState.new_geohash <== new_geohash;
@@ -281,6 +294,33 @@ template AttemptStreamingStateUpdate() {
     component irr_to_num = Bits2Num(num_bloombits);
     irr_to_num.in <== randomize_bloom_filter.irr;
     rappor_response <== irr_to_num.out;
+
+    // Check that yob implies that user is over 18.
+    // This looks slightly weird, the reason is that Year of Birth is encoded as 
+    // 2 ASCII bytes of the digit values. The default value in the test data is 00
+    // for 2000, so 48, 48.s
+    signal yob_0_digit <== yob[0] - 48;
+    signal yob_1_digit <== yob[1] - 48;
+    signal yob_2_digit_value <== yob_0_digit * 10 + yob_1_digit;
+
+    // Sanity check that yob is below 100.
+    component yob_range_check = LessThan(7);
+    yob_range_check.in[0] <== yob_2_digit_value;
+    yob_range_check.in[1] <== 100;
+    yob_range_check.out === 1;
+
+    // If you were born before 2007, it would be 07 and thus you are of age.
+    component yob_21st_century_of_age = LessThan(7);
+    yob_21st_century_of_age.in[0] <== yob_2_digit_value;
+    yob_21st_century_of_age.in[1] <== 7;
+
+    // If you were born before after 1926, it would be 26+ and thus you are of age.
+    component yob_20th_century_of_age = LessThan(7);
+    yob_20th_century_of_age.in[0] <== 25;
+    yob_20th_century_of_age.in[1] <== yob_2_digit_value;
+
+    signal of_age <== OR()(yob_20th_century_of_age.out, yob_21st_century_of_age.out);
+    of_age === 1;
 }
 
 component main = AttemptStreamingStateUpdate();

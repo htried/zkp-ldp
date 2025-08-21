@@ -20,4 +20,4 @@ fi
 
 node "$1"_js/generate_witness.js "$1"_js/"$1".wasm "$2" "$3"
 
-node cold_start_js/generate_witness.js cold_start_js/cold_start.wasm input.json wit.wtns
+# node cold_start_js/generate_witness.js cold_start_js/cold_start.wasm input.json wit.wtns

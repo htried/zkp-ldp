@@ -93,7 +93,7 @@ POT_SIZE=$(next_power_of_two $NUM_CONSTRAINTS)
 POT_EXP=$(power_of_two_exponent $POT_SIZE)
 # POT_EXP=16
 PTAU_URL="https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_${POT_EXP}.ptau"
-PTAU_FILE="../pots/pot${POT_EXP}_final.ptau"
+PTAU_FILE="../../pots/pot${POT_EXP}_final.ptau"
 
 # Download ptau file if not present
 if [ ! -f "$PTAU_FILE" ]; then
@@ -105,3 +105,7 @@ fi
 snarkjs groth16 setup "$R1CS_FILE" "$PTAU_FILE" "$EXPERIMENT_DIR/${CIRCUIT_NAME}_0000.zkey"
 snarkjs zkey contribute "$EXPERIMENT_DIR/${CIRCUIT_NAME}_0000.zkey" "$EXPERIMENT_DIR/${CIRCUIT_NAME}_0001.zkey" --name="1st Contributor Name"
 snarkjs zkey export verificationkey "$EXPERIMENT_DIR/${CIRCUIT_NAME}_0001.zkey" "$EXPERIMENT_DIR/verification_key.json"
+
+node "$EXPERIMENT_DIR/${CIRCUIT_NAME}_js/generate_witness.js" "$EXPERIMENT_DIR/${CIRCUIT_NAME}_js/$CIRCUIT_NAME.wasm" "$EXPERIMENT_DIR/input.json" "$EXPERIMENT_DIR/witness.wtns"
+
+node generate_inputs.js $K

@@ -105,50 +105,25 @@ async function sign_circom_inputs(unsigned_input) {
 
 async function main() {
     const k = parseInt(process.argv[2]) || 5;
-    const N = parseInt(process.argv[3]) || 100;
-    const mode = process.argv[4] || "success";
+    const mode = process.argv[3] || "success";
 
-    console.log(`Generating ${N} ${mode} inputs for k=${k}...`);
+    // console.log(`Generating ${N} ${mode} inputs for k=${k}...`);
 
-    const inputs = [];
-
-    for (let i = 0; i < N; i++) {
-        let input_obj;
-        if (mode === "success") {
-            input_obj = getSuccessExample(k);
-        } else if (mode === "failure") {
-            input_obj = getFailureExample(k);
-        } else {
-            console.error("Invalid mode");
-            process.exit(1);
-        }
-
-        input_obj = await sign_circom_inputs(input_obj);
-        input_obj = cleanInputs(input_obj);
-
-        inputs.push(input_obj);
-
-        if ((i + 1) % 10 === 0) {
-            console.log(`Generated ${i + 1}/${N} inputs...`);
-        }
+    let input_obj;
+    if (mode === "success") {
+        input_obj = getSuccessExample(k);
+    } else if (mode === "failure") {
+        input_obj = getFailureExample(k);
+    } else {
+        console.error("Invalid mode");
+        process.exit(1);
     }
 
-    const outputFile = `k${k}/inputs_k${k}_N${N}_${mode}.json`;
-    fs.writeFileSync(outputFile, JSON.stringify(inputs, null, 2));
-    console.log(`Generated ${N} inputs and saved to ${outputFile}`);
+    input_obj = await sign_circom_inputs(input_obj);
+    input_obj = cleanInputs(input_obj);
 
-    // Also save a single example for testing
-    const singleFile = `k${k}/input_example_k${k}_${mode}.json`;
-    fs.writeFileSync(singleFile, JSON.stringify(inputs[0], null, 2));
-    console.log(`Saved single example to ${singleFile}`);
-
-    // Print the count of inputs to verify we have 29
-    console.log(`Input object has ${Object.keys(inputs[0]).length} top-level fields`);
-    console.log(`Total input count: ${Object.keys(inputs[0]).reduce((sum, key) => {
-        const val = inputs[0][key];
-        if (Array.isArray(val)) return sum + val.length;
-        return sum + 1;
-    }, 0)}`);
+    const singleFile = `k${k}/input.json`;
+    fs.writeFileSync(singleFile, JSON.stringify(input_obj, null, 2));
 }
 
 main().catch(console.error);

@@ -52,3 +52,11 @@ If you're running this for one input state, do the following:
 If you want to run the test suite, do the following:
 
 8. `node test_circom_state.js` (This only needs steps 1 and 2 to be complete).
+
+## Running the experiments
+
+1. Navigate to the `experiments/` directory
+2. For each value of `<k>` in `{1, 5, 10, 25, 50, 250, 500, 1000, 2500, 5000}`, run `./compile_experiment.sh <k>`. (This will take a while and require some user-generated entropy.)
+3. Download the prover and verifier from the RapidSnark releases (https://github.com/iden3/rapidsnark/releases/), make them executable (`chmod +x`), and put them in the `experiments/` directory.
+4. Run `npm install`
+5. Run `./run_experiments.sh`. 
