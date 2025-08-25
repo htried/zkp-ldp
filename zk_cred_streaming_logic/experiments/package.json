@@ -1,0 +1,15 @@
+{
+  "name": "zk-cred-streaming-experiments",
+  "version": "1.0.0",
+  "description": "Experiment runner for zk-cred streaming state circuit",
+  "main": "experiment_runner_streaming.js",
+  "type": "commonjs",
+  "scripts": {
+    "run": "node experiment_runner_streaming.js"
+  },
+  "dependencies": {
+    "circomlibjs": "^0.1.7",
+    "ffjavascript": "^0.3.1",
+    "snarkjs": "^0.7.5"
+  }
+} 

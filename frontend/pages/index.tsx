@@ -1,19 +1,19 @@
-import { useState, useEffect } from 'react';
-import { collectFingerprint } from '../lib/fingerprint_collector';
-import { 
-  generateNFingerprints, 
-  generateNGeohashes, 
-  generateRandomIPs,
-  generateCoordinates,
-  hashTo250BitStrings,
-  ipToIntString,
-  geohashToIntString
-} from '../lib/utils';
-import { getFuzzyHash } from '../lib/fuzzy_hash';
-import { verifyStateUpdate, UnsignedInput, sign_circom_inputs } from '../lib/zk_utils';
-import { encode } from 'ngeohash';
 import Head from 'next/head';
 import Script from 'next/script';
+import { encode } from 'ngeohash';
+import { useEffect, useState } from 'react';
+import { collectFingerprint } from '../lib/fingerprint_collector';
+import { getFuzzyHash } from '../lib/fuzzy_hash';
+import {
+  generateCoordinates,
+  generateNFingerprints,
+  generateNGeohashes,
+  generateRandomIPs,
+  geohashToIntString,
+  hashTo250BitStrings,
+  ipToIntString
+} from '../lib/utils';
+import { UnsignedInput, sign_circom_inputs, verifyStateUpdate } from '../lib/zk_utils';
 
 // Add types for stored state
 interface StoredState {
@@ -88,21 +88,21 @@ export default function Home() {
         const fingerprintHash = await getFuzzyHash(fingerprint);
         const [first250, second250] = hashTo250BitStrings(fingerprintHash);
         setCurrentState(prev => ({ ...prev, fingerprint: [first250, second250] }));
-        
+
         // Using New York City as center point for demo
         const centerLat = 40.7128;
         const centerLng = -74.0060;
-        
+
         const nearbyPoint = generateCoordinates(centerLat, centerLng, options.geohashDistance);
         const currentGeohash = encode(nearbyPoint.lat, nearbyPoint.lng, 12);
-        setCurrentState(prev => ({ 
-          ...prev, 
-          location: { 
-            ...nearbyPoint, 
-            geohash: currentGeohash 
-          } 
+        setCurrentState(prev => ({
+          ...prev,
+          location: {
+            ...nearbyPoint,
+            geohash: currentGeohash
+          }
         }));
-        
+
         const currentIP = await fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => data.ip);
         setCurrentState(prev => ({ ...prev, ip: currentIP }));
 
@@ -197,7 +197,7 @@ export default function Home() {
       // Using New York City as center point for demo
       const centerLat = 40.7128;
       const centerLng = -74.0060;
-      
+
       const geoHashes = await generateNGeohashes(centerLat, centerLng, N, options.geohashDistance);
       setGeohashes(geoHashes);
 
@@ -222,24 +222,24 @@ export default function Home() {
     setVerificationStatus('Verifying...');
     try {
       const startTime = performance.now();
-      
+
       // Store original state before verification
       setOriginalState({
         ips: [...ipAddresses],
         geohashes: [...geohashes],
         fingerprint: currentState.fingerprint
       });
-      
+
       // Set the correct circuit files based on server configuration
       const circuitPath = `/gh_${options.serverGeohashBits}_fp_${options.serverFingerprintThreshold}`;
-      
+
       // Extract just the geohash part from the formatted strings
       const cleanGeohashes = geohashes.length > 0 ? geohashes.map(hash => {
         const match = hash.match(/\((.*?)\)/);
         return match ? match[1] : hash;
       }) : ["0", "0", "0", "0", "0"];
       const cleanNewGeohash = currentState.location.geohash;
-            
+
       // Log detailed prefix information
       const input: UnsignedInput = {
         ips: ipAddresses.length > 0 ? ipAddresses.map(ipToIntString) : ["0", "0", "0", "0", "0"],
@@ -263,7 +263,7 @@ export default function Home() {
 
       // Sign the input data first to get the signatures
       const signedInput = await sign_circom_inputs(input);
-      
+
       // Update signatures regardless of verification result
       setSignatures({
         initial_state: {
@@ -286,7 +286,7 @@ export default function Home() {
       const isValid = await verifyStateUpdate(signedInput, circuitPath);
       const verifyEndTime = performance.now();
       setVerifyingTime(verifyEndTime - verifyStartTime);
-      
+
       setVerificationStatus(isValid ? 'Verification successful!' : 'Verification failed');
 
       // If verification is successful, update the stored state
@@ -313,14 +313,14 @@ export default function Home() {
 
       <div className="container py-5">
         <h1 className="text-3xl font-bold mb-4">Zero-Knowledge Credential Generator</h1>
-        
+
         <div className="mb-4">
           <h2 className="text-xl font-semibold mb-2">Your current state</h2>
           <div className="list-group mb-4">
             <div className="list-group-item bg-gray-800 text-white">
               <strong>Current fingerprint</strong>
               <p className="text-sm text-gray-400">A 500-bit <a href='https://en.wikipedia.org/wiki/Fuzzy_hashing' target='_blank' rel='noopener noreferrer' className="orange-link">fuzzy hash</a> of the client's browser characteristics</p>
-              {currentState.fingerprint ? 
+              {currentState.fingerprint ?
                 currentState.fingerprint.map((bits, i) => (
                   <>
                     <code key={i} className="font-mono text-sm break-all mt-1">
@@ -333,14 +333,14 @@ export default function Home() {
             <div className="list-group-item bg-gray-800 text-white">
               <strong>Current location and geohash</strong>
               <p className="text-sm text-gray-400">The client's current location encoded as a <a href='https://en.wikipedia.org/wiki/Geohash' target='_blank' rel='noopener noreferrer' className="orange-link">geohash</a> (hardcoded to a random point near NYC for demo)</p>
-              {currentState.location ? 
+              {currentState.location ?
                 <div>
                   <div><code className="font-mono text-sm">Lat/Lng: {currentState.location.lat.toFixed(6)},{currentState.location.lng.toFixed(6)}</code></div>
                   <div><code className="font-mono text-sm">Geohash: {currentState.location.geohash}</code></div>
-                </div> : 
+                </div> :
                 'Not generated yet'}
             </div>
-            <div className="list-group-item bg-gray-800 text-white"> 
+            <div className="list-group-item bg-gray-800 text-white">
               <strong>Current IP address</strong>
               <p className="text-sm text-gray-400">The client's current IP address (used for location verification)</p>
               {currentState.ip ?
@@ -352,10 +352,10 @@ export default function Home() {
 
         <div className="flex flex-row items-center space-x-12 mb-4">
           <button
-              onClick={handleVerify}
-              className="btn btn-primary"
-            >
-              Verify and add current state to history
+            onClick={handleVerify}
+            className="btn btn-primary"
+          >
+            Verify and add current state to history
           </button>
 
           <button
@@ -384,7 +384,7 @@ export default function Home() {
                 const [first250, second250] = hash.split(',');
                 return (
                   <div key={i} className="list-group-item bg-gray-800 text-white">
-                    <code className="font-mono text-sm">{first250}<br/></code>
+                    <code className="font-mono text-sm">{first250}<br /></code>
                     <code className="font-mono text-sm">{second250}</code>
                   </div>
                 );
@@ -454,7 +454,7 @@ export default function Home() {
                         min="0"
                         max="100"
                         value={options.fingerprintSimilarity}
-                        onChange={(e) => setOptions({...options, fingerprintSimilarity: parseInt(e.target.value)})}
+                        onChange={(e) => setOptions({ ...options, fingerprintSimilarity: parseInt(e.target.value) })}
                         className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                       />
                       <span className="ml-2 w-16 text-center">{options.fingerprintSimilarity}%</span>
@@ -469,7 +469,7 @@ export default function Home() {
                         max="2"
                         step="0.05"
                         value={options.geohashDistance}
-                        onChange={(e) => setOptions({...options, geohashDistance: parseFloat(e.target.value)})}
+                        onChange={(e) => setOptions({ ...options, geohashDistance: parseFloat(e.target.value) })}
                         className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                       />
                       <span className="ml-2 w-16 text-center">{options.geohashDistance}°</span>
@@ -500,7 +500,7 @@ export default function Home() {
             </div>
           )}
         </div>
-        
+
         {verificationStatus && verificationStatus.includes('successful') && (
           <div className="bg-gray-800 p-4 rounded mb-6">
             <h4 className="text-lg font-semibold mb-2">What you have attested to:</h4>
@@ -510,8 +510,8 @@ export default function Home() {
                   <li>Using {options.serverGeohashBits} bits of precision</li>
                   <li>Bounding box size: {
                     options.serverGeohashBits === 15 ? "~156km x ~156km" :
-                    options.serverGeohashBits === 20 ? "~39km x ~19.5km" :
-                    "~5km x ~5km"
+                      options.serverGeohashBits === 20 ? "~39km x ~19.5km" :
+                        "~5km x ~5km"
                   }</li>
                 </ul>
               </li>
@@ -519,8 +519,8 @@ export default function Home() {
                 <ul className="list-disc pl-4 mt-1">
                   <li>Required similarity: {
                     options.serverFingerprintThreshold === 350 ? "70%" :
-                    options.serverFingerprintThreshold === 400 ? "80%" :
-                    "90%"
+                      options.serverFingerprintThreshold === 400 ? "80%" :
+                        "90%"
                   }</li>
                   <li>Generated similarity: {options.fingerprintSimilarity}%</li>
                 </ul>
@@ -639,7 +639,7 @@ export default function Home() {
                 <select
                   className="form-select bg-gray-800 text-white border-2 border-gray-700 hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 rounded-lg p-2 cursor-pointer transition-colors duration-200"
                   value={options.serverGeohashBits}
-                  onChange={(e) => setOptions({...options, serverGeohashBits: parseInt(e.target.value)})}
+                  onChange={(e) => setOptions({ ...options, serverGeohashBits: parseInt(e.target.value) })}
                 >
                   {geohashConfigs.map(config => (
                     <option key={config.bits} value={config.bits}>
@@ -653,7 +653,7 @@ export default function Home() {
                 <select
                   className="form-select bg-gray-800 text-white border-2 border-gray-700 hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 rounded-lg p-2 cursor-pointer transition-colors duration-200"
                   value={options.serverFingerprintThreshold}
-                  onChange={(e) => setOptions({...options, serverFingerprintThreshold: parseInt(e.target.value)})}
+                  onChange={(e) => setOptions({ ...options, serverFingerprintThreshold: parseInt(e.target.value) })}
                 >
                   {fingerprintConfigs.map(config => (
                     <option key={config.threshold} value={config.threshold}>
@@ -687,6 +687,7 @@ export default function Home() {
         </div>
       </div>
 
+      {/*
       <footer className="bg-gray-800 border-t border-gray-700 py-6 mt-8">
         <div className="container">
           <div className="text-center text-gray-400 text-sm">
@@ -712,6 +713,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      */}
     </div>
   );
 }

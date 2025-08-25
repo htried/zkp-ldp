@@ -27,10 +27,12 @@ template Mux1_2Vals() {
 }
 
 // STATE STRUCT
+
 bus CredentialState(num_ips){
     signal ips[num_ips];
     signal geohashes[num_ips];
     signal last_fingerprint[2];
+    signal year_of_birth[2];
     signal users_prf_seed;
     signal state_counter;
     signal state_sig_r8x;
@@ -47,6 +49,7 @@ template ValidateInitialState(num_ips) {
     signal input ips[num_ips];
     signal input geohashes[num_ips];
     signal input last_fingerprint[2];
+    signal input yob[2];
     signal input users_prf_seed;
     signal input state_counter; 
     signal input initial_state_r8x;
@@ -57,22 +60,29 @@ template ValidateInitialState(num_ips) {
 
     signal output nullifier;
 
-    var len = num_ips + num_ips + 2 + 1 + 1;
-    component state_hasher = Poseidon(len);
+    var len = num_ips + num_ips + 2 + 2 + 1 + 1;
+    signal state_hash_inputs[len];
     for (var i = 0; i < num_ips; i++) {
-        state_hasher.inputs[i] <== ips[i];
+        state_hash_inputs[i] <== ips[i];
     }
-    for (var i = num_ips; i < 2*num_ips; i++) {
-        state_hasher.inputs[i] <== geohashes[i - num_ips];
+    for (var i = 0; i < num_ips; i++) {
+        state_hash_inputs[num_ips + i] <== geohashes[i];
     }
-    state_hasher.inputs[2*num_ips] <== last_fingerprint[0];
-    state_hasher.inputs[2*num_ips + 1] <== last_fingerprint[1];
-    state_hasher.inputs[2*num_ips + 2] <== users_prf_seed;
-    state_hasher.inputs[2*num_ips + 3] <== state_counter;
+    state_hash_inputs[2*num_ips] <== last_fingerprint[0];
+    state_hash_inputs[2*num_ips + 1] <== last_fingerprint[1];
+    state_hash_inputs[2*num_ips + 2] <== yob[0];
+    state_hash_inputs[2*num_ips + 3] <== yob[1];
+    state_hash_inputs[2*num_ips + 4] <== users_prf_seed;
+    state_hash_inputs[2*num_ips + 5] <== state_counter;
+    component state_hasher = ChainedPoseidonHash(len);
+    state_hasher.in <== state_hash_inputs;
 
     component comm_hasher = Poseidon(2);
     comm_hasher.inputs[0] <== comm_rand;
     comm_hasher.inputs[1] <== state_hasher.out;
+
+    // log("comm_hasher.out");
+    // log(comm_hasher.out);
 
     // Verify initial state signature
     component initialVerifier = EdDSAPoseidonVerifier();
@@ -130,6 +140,7 @@ template CreateUpdatedState(num_ips) {
     // Old state
     signal input initialState_ips[num_ips];
     signal input initialState_geohashes[num_ips];
+    signal input yob[2];
     signal input users_prf_seed;
     signal input state_counter;
     // Stuff to add to new state
@@ -233,18 +244,22 @@ template CreateUpdatedState(num_ips) {
         newState_geohashes[i] <== mux3[i].out[1];
     }
     
-    var len = num_ips + num_ips + 2 + 1 + 1;
-    component new_state_hasher = Poseidon(len);
+    var len = num_ips + num_ips + 2 + 2 + 1 + 1;
+    signal new_state_hash_inputs[len];
     for (var i = 0; i < num_ips; i++) {
-        new_state_hasher.inputs[i] <== newState_ips[i];
+        new_state_hash_inputs[i] <== newState_ips[i];
     }
-    for (var i = num_ips; i < 2*num_ips; i++) {
-        new_state_hasher.inputs[i] <== newState_geohashes[i - num_ips];
+    for (var i = 0; i < num_ips; i++) {
+        new_state_hash_inputs[num_ips + i] <== newState_geohashes[i];
     }
-    new_state_hasher.inputs[2*num_ips] <== new_last_fingerprint[0];
-    new_state_hasher.inputs[2*num_ips + 1] <== new_last_fingerprint[1];
-    new_state_hasher.inputs[2*num_ips + 2] <== new_user_prf_seed;
-    new_state_hasher.inputs[2*num_ips + 3] <== new_state_counter;
+    new_state_hash_inputs[2*num_ips] <== new_last_fingerprint[0];
+    new_state_hash_inputs[2*num_ips + 1] <== new_last_fingerprint[1];
+    new_state_hash_inputs[2*num_ips + 2] <== yob[0];
+    new_state_hash_inputs[2*num_ips + 3] <== yob[1];
+    new_state_hash_inputs[2*num_ips + 4] <== new_user_prf_seed;
+    new_state_hash_inputs[2*num_ips + 5] <== new_state_counter;
+    component new_state_hasher = ChainedPoseidonHash(len);
+    new_state_hasher.in <== new_state_hash_inputs;
 
     component comm_hasher = Poseidon(2);
     comm_hasher.inputs[0] <== state_comm_randomness;
@@ -258,6 +273,7 @@ template AttemptStateUpdate(num_ips) {
     signal input ips[num_ips];
     signal input geohashes[num_ips];
     signal input last_fingerprint[2];
+    signal input yob[2];
     signal input users_prf_seed;
     signal input state_counter;
     signal input initial_state_r8x;
@@ -295,6 +311,7 @@ template AttemptStateUpdate(num_ips) {
     initialStateValidator.ips <== ips;
     initialStateValidator.geohashes <== geohashes;
     initialStateValidator.last_fingerprint <== last_fingerprint;
+    initialStateValidator.yob <== yob;
     initialStateValidator.users_prf_seed <== users_prf_seed;
     initialStateValidator.state_counter <== state_counter;
     initialStateValidator.initial_state_r8x <== initial_state_r8x;
@@ -430,10 +447,10 @@ template AttemptStateUpdate(num_ips) {
     // var fingerprint_similarity_threshold = 450;
 
     // 80% similarity threshold
-    // var fingerprint_similarity_threshold = 400;
+    var fingerprint_similarity_threshold = 400;
 
     // 70% similarity threshold
-    var fingerprint_similarity_threshold = 300;
+    // var fingerprint_similarity_threshold = 300;
 
     component similarity_score_checker = LessThan(10);
     similarity_score_checker.in[0] <== fingerprint_similarity_threshold;
@@ -480,11 +497,39 @@ template AttemptStateUpdate(num_ips) {
     irr_to_num.in <== randomize_bloom_filter.irr;
     rappor_response <== irr_to_num.out;
 
+    // Check that yob implies that user is over 18.
+    // This looks slightly weird, the reason is that Year of Birth is encoded as 
+    // 2 ASCII bytes of the digit values. The default value in the test data is 00
+    // for 2000, so 48, 48.s
+    signal yob_0_digit <== yob[0] - 48;
+    signal yob_1_digit <== yob[1] - 48;
+    signal yob_2_digit_value <== yob_0_digit * 10 + yob_1_digit;
+
+    // Sanity check that yob is below 100.
+    component yob_range_check = LessThan(7);
+    yob_range_check.in[0] <== yob_2_digit_value;
+    yob_range_check.in[1] <== 100;
+    yob_range_check.out === 1;
+
+    // If you were born before 2007, it would be 07 and thus you are of age.
+    component yob_21st_century_of_age = LessThan(7);
+    yob_21st_century_of_age.in[0] <== yob_2_digit_value;
+    yob_21st_century_of_age.in[1] <== 7;
+
+    // If you were born before after 1926, it would be 26+ and thus you are of age.
+    component yob_20th_century_of_age = LessThan(7);
+    yob_20th_century_of_age.in[0] <== 25;
+    yob_20th_century_of_age.in[1] <== yob_2_digit_value;
+
+    signal of_age <== OR()(yob_20th_century_of_age.out, yob_21st_century_of_age.out);
+    of_age === 1;
+
     // Produce updated state
     // Propose new state
     component updateState = CreateUpdatedState(num_ips);
     updateState.initialState_ips <== ips;
     updateState.initialState_geohashes <== geohashes;
+    updateState.yob <== yob;
     updateState.users_prf_seed <== users_prf_seed;
     updateState.state_counter <== state_counter;
     updateState.new_ip <== new_ip;
@@ -496,4 +541,51 @@ template AttemptStateUpdate(num_ips) {
     new_state_commitment <== updateState.new_state_commitment;
 }
 
-component main = AttemptStateUpdate(5);
+// ============== CHAINED HASH FOR LONG INPUTS =================
+// Hashes an array using blocks of 15 inputs + previous hash per block
+template ChainedPoseidonHash(len) {
+    signal input in[len];
+    signal output out;
+
+    var num_blocks = (len \ 15) + (len % 15 != 0 ? 1 : 0);
+    component block_poseidon[num_blocks];
+
+    // Initialize all Poseidon components
+    for (var i = 0; i < num_blocks; i++) {
+        block_poseidon[i] = Poseidon(16);  // 15 inputs + 1 previous hash
+    }
+
+    // First block: just the first 15 inputs (or fewer if len < 15)
+    var first_block_size = len < 15 ? len : 15;
+    for (var i = 0; i < first_block_size; i++) {
+        block_poseidon[0].inputs[i] <== in[i];
+    }
+    // Pad first block with zeros if needed
+    for (var i = first_block_size; i < 15; i++) {
+        block_poseidon[0].inputs[i] <== 0;
+    }
+    block_poseidon[0].inputs[15] <== 0; // No previous hash for first block
+
+    // Subsequent blocks: 15 inputs + previous hash
+    for (var b = 1; b < num_blocks; b++) {
+        var start_idx = b * 15;
+        var remaining = len - start_idx;
+        var block_size = remaining < 15 ? remaining : 15;
+        
+        // Connect inputs
+        for (var i = 0; i < block_size; i++) {
+            block_poseidon[b].inputs[i] <== in[start_idx + i];
+        }
+        // Pad with zeros if needed
+        for (var i = block_size; i < 15; i++) {
+            block_poseidon[b].inputs[i] <== 0;
+        }
+        // Connect previous hash
+        block_poseidon[b].inputs[15] <== block_poseidon[b-1].out;
+    }
+
+    // Final output is the last block's hash
+    out <== block_poseidon[num_blocks-1].out;
+}
+
+// component main = AttemptStateUpdate(5);

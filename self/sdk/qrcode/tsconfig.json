@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "Node16",
+    "declaration": true,
+    "declarationDir": "./dist",
+    "outDir": "./dist",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "jsx": "react",
+    "moduleResolution": "node16"
+  },
+  "include": [
+    "animations",
+    "index.ts",
+    "components/**.tsx",
+    "utils/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/__tests__/*",
+    "dist",
+  ]
+}

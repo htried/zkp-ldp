@@ -1,0 +1,134 @@
+source 'https://cdn.cocoapods.org/'
+use_frameworks!
+require "tmpdir"
+
+# Resolve react_native_pods.rb with node to allow for hoisting
+require Pod::Executable.execute_command("node", ["-p",
+                                                 'require.resolve(
+    "react-native/scripts/react_native_pods.rb",
+    {paths: [process.argv[1]]},
+  )', __dir__]).strip
+
+project "Self.xcodeproj"
+
+platform :ios, "15.0" if !ENV["ACT"]
+prepare_react_native_project!
+
+flipper_enabled = ENV["NO_FLIPPER"] != "1"
+flipper_config = { "Flipper" => flipper_enabled ? "~> 0.125.0" : nil }
+
+linkage = ENV["USE_FRAMEWORKS"]
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
+end
+
+target "Self" do
+  config = use_native_modules!
+
+  use_frameworks!
+  pod "NFCPassportReader", git: "https://github.com/seshanthS/NFCPassportReader", commit: "2391579b439362ec925e039cd4a503b6968e2728"
+
+  pod "QKMRZScanner"
+  pod "lottie-ios"
+  pod "SwiftQRScanner", :git => "https://github.com/vinodiOS/SwiftQRScanner"
+  pod "Mixpanel-swift", "~> 5.0.0"
+  pod "RNReactNativeHapticFeedback", :path => "../../node_modules/react-native-haptic-feedback", :modular_headers => true
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :hermes_enabled => false,
+    # An absolute path to your application root.
+    :app_path => "#{Pod::Config.instance.installation_root}/..",
+    # Flipper設定は削除
+  )
+
+  pod "Sentry", :modular_headers => true
+  pod "SentryPrivate", :modular_headers => true
+
+  pod "Firebase", :modular_headers => true
+  pod "FirebaseCore", :modular_headers => true
+  pod "FirebaseCoreInternal", :modular_headers => true
+  pod "GoogleUtilities", :modular_headers => true
+  pod "FirebaseMessaging"
+
+  if flipper_enabled
+    pod "RCT-Folly", :podspec => "#{config[:reactNativePath]}/third-party-podspecs/RCT-Folly.podspec"
+  end
+
+  post_install do |installer|
+    installer.generated_projects.each do |project|
+      project.targets.each do |target|
+        if target.name == "RNZipArchive"
+          target.source_build_phase.files.each do |file|
+            if file.settings && file.settings["COMPILER_FLAGS"]
+              file.settings["COMPILER_FLAGS"] = ""
+            end
+          end
+        end
+        target.build_configurations.each do |config|
+          config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "15.0"
+          config.build_settings["GCC_PREPROCESSOR_DEFINITIONS"] ||= ["$(inherited)", "_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION"]
+        end
+      end
+    end
+
+    bitcode_strip_path = `xcrun --find bitcode_strip`.chop!
+
+    def strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
+      framework_path = File.join(Dir.pwd, framework_relative_path)
+      command = "#{bitcode_strip_path} #{framework_path} -r -o #{framework_path}"
+      puts "Stripping bitcode: #{command}"
+      system(command)
+    end
+
+    framework_paths = [
+      "Pods/OpenSSL-Universal/Frameworks/OpenSSL.xcframework/ios-arm64/OpenSSL.framework/OpenSSL",
+      "Pods/OpenSSL-Universal/Frameworks/OpenSSL.xcframework/ios-arm64_x86_64-maccatalyst/OpenSSL.framework/OpenSSL",
+      "Pods/OpenSSL-Universal/Frameworks/OpenSSL.xcframework/ios-arm64_x86_64-simulator/OpenSSL.framework/OpenSSL",
+      "Pods/OpenSSL-Universal/Frameworks/OpenSSL.xcframework/macos-arm64_x86_64/OpenSSL.framework/OpenSSL",
+    ]
+
+    framework_paths.each do |framework_relative_path|
+      strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
+    end
+
+    # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
+    react_native_post_install(
+      installer,
+      config[:reactNativePath],
+      :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
+    )
+
+    installer.pods_project.targets.each do |target|
+      if target.name == "RNReactNativeHapticFeedback"
+        target.build_configurations.each do |config|
+          config.build_settings["OTHER_LDFLAGS"] ||= ["$(inherited)"]
+          config.build_settings["OTHER_LDFLAGS"] << "-framework AudioToolbox"
+        end
+      end
+    end
+
+    # update QKCutoutView.swift to hide OCR border
+    qkCutoutView = "Pods/QKMRZScanner/QKMRZScanner/QKCutoutView.swift"
+    if File.exist?(qkCutoutView) && File.writable?(qkCutoutView)
+      text = File.read(qkCutoutView)
+      # Only modify if the line is not already commented
+      if text.match?(/^\s*[^\/]*addBorderAroundCutout\s*\(\s*\)/)
+        # Comment out the line containing "addBorderAroundCutout()"
+        new_text = text.gsub(/^(\s*addBorderAroundCutout\s*\(\s*\))/, '// \1')
+        File.open(qkCutoutView, "w") { |file| file.puts new_text }
+      end
+    else
+      puts "Warning: Could not find QKCutoutView.swift at #{qkCutoutView}"
+    end
+
+    # Disable code signing for Pod targets to avoid conflicts with main app signing
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings["CODE_SIGNING_ALLOWED"] = "NO"
+      end
+    end
+  end
+end
