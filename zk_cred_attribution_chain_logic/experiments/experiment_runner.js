@@ -8,7 +8,7 @@ const { execSync } = require("child_process");
 async function main() {
     const k = parseInt(process.argv[2]);
     const N = parseInt(process.argv[3]);
-    const outputFile = process.argv[4] || `../../results/experiment_results_k${k}_N${N}.json`;
+    const outputFile = process.argv[4] || `../../results/experiment_results_attribution_chain_k${k}.json`;
 
     // Create output directory if it doesn't exist
     const outputDir = outputFile.substring(0, outputFile.lastIndexOf('/'));
@@ -18,14 +18,12 @@ async function main() {
 
     if (!k || !N) {
         console.error("Usage: node experiment_runner.js <state_length> <num_runs> <output_file>");
-        // console.error("Note: Uses pre-generated inputs from k${k}/inputs_k${k}_N100_success.json");
         process.exit(1);
     }
     const results = [];
     // Load the pre-generated inputs
 
     for (let i = 0; i < N; i++) {
-
         // Create proofs subdirectory if it doesn't exist
         const proofsDir = `k${k}/proofs`;
         if (!fs.existsSync(proofsDir)) {
@@ -47,6 +45,9 @@ async function main() {
                 cwd: __dirname  // Run from the experiments directory
             });
 
+            // Debug: log the raw output from Rapidsnark
+            // console.log(`Rapidsnark output for run ${i}: ${output}`);
+
         } catch (e) {
             proveError = `Rapidsnark failed: ${e.message}`;
         }
@@ -54,10 +55,8 @@ async function main() {
         const proveTimeMs = Number(endProve - startProve) / 1e6;
         let verifyTimeMs = null, res = null, verifyError = null;
         if (!proveError) {
-            // const vKey = JSON.parse(fs.readFileSync(`k${k}/verification_key.json`));
             const startVerify = process.hrtime.bigint();
             try {
-                // res = await snarkjs.groth16.verify(vKey, publicSignals, proof);
                 const output = execSync(`../../prove_verify/verifier k${k}/verification_key.json ${publicFile} ${proofFile}`, {
                     encoding: 'utf8',
                     cwd: __dirname  // Run from the experiments directory

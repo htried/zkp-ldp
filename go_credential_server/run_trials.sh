@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Running trials and outputting to CSV..."
-echo "trial,verification_ms,nullifier_ms,signing_ms,total_ms" > timing_results.csv
+echo "trial,verification_ns,nullifier_ns,signing_ns,total_ns" > timing_results.csv
 
 # Number of trials
 TRIALS=200
@@ -19,7 +19,6 @@ for i in $(seq 1 $TRIALS); do
             "input": '"$(cat circom_stuff/test_input.json)"'
         }')
     
-    # Extract timing values (convert from nanoseconds to milliseconds)
     verification_time=$(echo "$response" | jq -r '.timing.verification_time')
     nullifier_time=$(echo "$response" | jq -r '.timing.nullifier_time')
     signing_time=$(echo "$response" | jq -r '.timing.signing_time')

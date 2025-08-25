@@ -4,12 +4,8 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 
 async function main() {
-    // console.log(await getStreamingExample());
-    // process.exit(0);
-
-    // const input_obj = JSON.parse(fs.readFileSync("input.json", "utf8"));
     const N = parseInt(process.argv[2]) || 100;
-    const outputFile = process.argv[3] || `experiment_results_streaming_N${N}.json`;
+    const outputFile = process.argv[3] || `../../results/experiment_results_streaming_N${N}.json`;
     const results = [];
     // Create proofs subdirectory if it doesn't exist
     const proofsDir = "proofs";
@@ -24,7 +20,7 @@ async function main() {
         let verifyStart, verifyEnd;
         try {
             // Run Rapidsnark prover with existing witness file
-            const output = execSync(`/Users/haltriedman/code/zkp-ldp/zk_cred_logic/experiments/prover ../state_streaming_0001.zkey witness.wtns proof.json public.json`, {
+            const output = execSync(`../../prove_verify/prover ../state_streaming_0001.zkey witness.wtns proof.json public.json`, {
                 encoding: 'utf8',
                 cwd: __dirname
             });
@@ -32,7 +28,7 @@ async function main() {
             // Now verify using Rapidsnark verifier
             verifyStart = process.hrtime.bigint();
             try {
-                const verifyOutput = execSync(`/Users/haltriedman/code/zkp-ldp/zk_cred_logic/experiments/verifier ../verification_key.json public.json proof.json`, {
+                const verifyOutput = execSync(`../../prove_verify/verifier ../verification_key.json public.json proof.json`, {
                     encoding: 'utf8',
                     cwd: __dirname
                 });

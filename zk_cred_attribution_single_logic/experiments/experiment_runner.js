@@ -8,7 +8,7 @@ const { execSync } = require("child_process");
 async function main() {
     const k = parseInt(process.argv[2]);
     const N = parseInt(process.argv[3]);
-    const outputFile = process.argv[4] || `../../results/experiment_results_k${k}_N${N}.json`;
+    const outputFile = process.argv[4] || `../../results/experiment_results_attribution_single_k${k}.json`;
 
     // Create output directory if it doesn't exist
     const outputDir = outputFile.substring(0, outputFile.lastIndexOf('/'));
@@ -22,7 +22,6 @@ async function main() {
         process.exit(1);
     }
     const results = [];
-    // Load the pre-generated inputs
 
     for (let i = 0; i < N; i++) {
 
@@ -63,9 +62,11 @@ async function main() {
                     cwd: __dirname  // Run from the experiments directory
                 });
                 res = true
+                // console.log(`Verifier output for run ${i}: ${output}`);
             } catch (e) {
                 verifyError = e.toString();
                 res = false
+                // console.log(`Verifier error for run ${i}: ${verifyError}`);
             }
             const endVerify = process.hrtime.bigint();
             verifyTimeMs = Number(endVerify - startVerify) / 1e6;
