@@ -669,7 +669,7 @@ export default function Home() {
         <div className="mb-4">
           <h2 className="text-xl font-semibold mb-2">How this works</h2>
           <div className="bg-gray-800 p-4 rounded mb-4">
-            <p className="mb-2">This demo website shows how <a href="https://en.wikipedia.org/wiki/Zero-knowledge_proof" target="_blank" rel="noopener noreferrer" className="orange-link">zero-knowledge proof</a>-based <a href='https://eprint.iacr.org/2022/878.pdf' target='_blank' rel='noopener noreferrer' className="orange-link">anonymous credentials</a> can verify that a user's state is within normal parameters while maintaining privacy. All data is generated and stored locally in your browser's local storage. We envision this being used for a wide range of applications, for example:</p>
+            <p className="mb-2">This demo website shows how <a href="https://en.wikipedia.org/wiki/Zero-knowledge_proof" target="_blank" rel="noopener noreferrer" className="orange-link">zero-knowledge proof</a>-based anonymous credentials can verify that a user's state is within normal parameters while maintaining privacy. All data is generated and stored locally in your browser's local storage. We envision this being used for a wide range of applications, for example:</p>
             <ul className="list-disc pl-4 space-y-2">
               <li>Verifying that a user is logging in from a location that they've previously logged-in from</li>
               <li>Verifying that the current device that they're using is similar to a device that they've used in the past</li>
