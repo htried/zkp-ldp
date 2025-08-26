@@ -5,7 +5,7 @@ const { execSync } = require("child_process");
 
 async function main() {
     const N = parseInt(process.argv[2]) || 100;
-    const outputFile = process.argv[3] || `../../results/experiment_results_streaming_N${N}.json`;
+    const outputFile = process.argv[3] || `../../results/experiment_results_streaming.json`;
     const results = [];
     // Create proofs subdirectory if it doesn't exist
     const proofsDir = "proofs";
@@ -34,9 +34,9 @@ async function main() {
                 });
                 verifyEnd = process.hrtime.bigint();
 
-                // Clean up temporary files
-                fs.unlinkSync("proof.json");
-                fs.unlinkSync("public.json");
+                // // Clean up temporary files
+                // fs.unlinkSync("proof.json");
+                // fs.unlinkSync("public.json");
 
             } catch (verifyErr) {
                 proveError = `Verification failed: ${verifyErr.message}`;

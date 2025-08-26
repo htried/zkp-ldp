@@ -97,11 +97,16 @@ yarn-error.log*
 !zk_cred_logic/experiments/generate_inputs.js
 !go_credential_server/circom_stuff/state_js/generate_witness.js
 !go_credential_server/circom_stuff/state_js/witness_calculator.js
+!zk_cred_streaming_logic/generate_input.js
 go_credential_server/circom_stuff/proof.json
 go_credential_server/circom_stuff/public.json
 go_credential_server/circom_stuff/witness.wtns
 go_credential_server/go.sum
 go_credential_server/credential_server
+zk_cred_streaming_logic/experiments/witness.wtns
+zk_cred_streaming_logic/experiments/proof.json
+zk_cred_streaming_logic/experiments/public.json
+zk_cred_streaming_logic/experiments/witness.wtns
 
 zk_cred_attribution_chain_logic/experiments/k*/proofs
 zk_cred_attribution_chain_logic/experiments/k*/state_cpp
