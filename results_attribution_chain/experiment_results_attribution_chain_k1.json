@@ -1,13 +1,5 @@
 [
   {
-    "run": 0,
-    "proveTimeMs": 201.735287,
-    "verifyTimeMs": 24.013527,
-    "verified": true,
-    "proveError": null,
-    "verifyError": null
-  },
-  {
     "run": 1,
     "proveTimeMs": 198.610953,
     "verifyTimeMs": 18.645095,

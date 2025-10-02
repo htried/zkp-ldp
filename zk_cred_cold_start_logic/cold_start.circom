@@ -19,6 +19,7 @@ template InitializeEmptyState(num_ips) {
     var kScaled = k * kLengthFactor;
 
     signal input fingerprint[2];
+    signal input fingerprint_nonce;
     signal input users_prf_seed;
     signal input initial_comm_rand; 
 
@@ -52,6 +53,15 @@ template InitializeEmptyState(num_ips) {
     // Passport stuff
     signal output passport_nullifier;
     signal output passport_commitment;
+    // Commitment to the client's fingerprint
+    signal output fingerprint_commitment;
+
+    // Produce commitment to the client's fingerprint
+    component fingerprint_commitment_hasher = Poseidon(3);
+    fingerprint_commitment_hasher.inputs[0] <== fingerprint[0];
+    fingerprint_commitment_hasher.inputs[1] <== fingerprint[1];
+    fingerprint_commitment_hasher.inputs[2] <== fingerprint_nonce;
+    fingerprint_commitment <== fingerprint_commitment_hasher.out;
 
     var len = num_ips + num_ips + 2 + 2 + 1 + 1;
     component state_hasher = Poseidon(len);

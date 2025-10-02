@@ -17,7 +17,7 @@ async function run() {
         try {
             // Run Rapidsnark prover directly with existing input.json
             const proveStart = performance.now();
-            const output = execSync(`/Users/haltriedman/code/zkp-ldp/zk_cred_logic/experiments/prover cold_start_0001.zkey witness.wtns proof.json public.json`, {
+            const output = execSync(`../prove_verify/prover cold_start_0001.zkey witness.wtns proof.json public.json`, {
                 encoding: 'utf8',
                 cwd: __dirname
             });
@@ -26,7 +26,7 @@ async function run() {
 
             // Verify using Rapidsnark verifier
             const verifyStart = performance.now();
-            const verifyOutput = execSync(`/Users/haltriedman/code/zkp-ldp/zk_cred_logic/experiments/verifier verification_key.json public.json proof.json`, {
+            const verifyOutput = execSync(`../prove_verify/verifier verification_key.json public.json proof.json`, {
                 encoding: 'utf8',
                 cwd: __dirname
             });

@@ -22,22 +22,6 @@ const config = {
     ]
 };
 
-// Helper: Chained Poseidon Hash for arrays > 16
-async function chainedPoseidonHash(arr, poseidon) {
-    let F = poseidon.F;
-    // Normalize all inputs to strings, then to field elements
-    let normArr = arr.map(x => (typeof x === 'bigint' ? x.toString() : x)).map(x => F.e(x));
-    let numBlocks = Math.floor(normArr.length / 15) + (normArr.length % 15 !== 0 ? 1 : 0);
-    let prevHash = F.e(0);
-    for (let b = 0; b < numBlocks; b++) {
-        let start = b * 15;
-        let block = normArr.slice(start, start + 15);
-        while (block.length < 15) block.push(F.e(0));
-        let inputs = [...block, prevHash];
-        prevHash = poseidon(inputs);
-    }
-    return prevHash;
-}
 
 // Helper function to convert coordinates to geohash
 function coordinatesToGeohash(lat, lng) {
@@ -181,7 +165,7 @@ async function signCircomInputs(unsignedInput) {
     // console.log(`  S: ${unsignedInput.initial_state_s}`);
 
     // Create response hash for server response signature
-    const responseVecString = [unsignedInput.new_geohash, unsignedInput.new_rappor_nonce];
+    const responseVecString = [unsignedInput.new_geohash, unsignedInput.new_rappor_nonce, unsignedInput.new_fingerprint_nonce];
     // console.log('\n=== DEBUG: Response Hash Calculation ===');
     // console.log('Response vector for hashing:', responseVecString);
 
@@ -238,6 +222,7 @@ async function generateInput() {
         initial_comm_rand: Math.floor(Math.random() * 1000000000000000).toString(),
         new_geohash: testData.newGeohash,
         new_rappor_nonce: Math.floor(Math.random() * 1000000).toString(),
+        new_fingerprint_nonce: Math.floor(Math.random() * 1000000000).toString(),
         state_comm_randomness: Math.floor(Math.random() * 1000000000000000).toString(),
         new_fingerprint: config.fingerprint
     };

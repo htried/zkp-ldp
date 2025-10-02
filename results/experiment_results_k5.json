@@ -1,808 +1,792 @@
 [
   {
-    "run": 0,
-    "proveTimeMs": 178.009323,
-    "verifyTimeMs": 15.891474,
-    "verified": true,
-    "proveError": null,
-    "verifyError": null
-  },
-  {
     "run": 1,
-    "proveTimeMs": 186.964974,
-    "verifyTimeMs": 14.624512,
+    "proveTimeMs": 198.21745,
+    "verifyTimeMs": 19.332741,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 2,
-    "proveTimeMs": 177.100897,
-    "verifyTimeMs": 15.836023,
+    "proveTimeMs": 208.935952,
+    "verifyTimeMs": 17.84534,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 3,
-    "proveTimeMs": 178.969458,
-    "verifyTimeMs": 16.580061,
+    "proveTimeMs": 190.876667,
+    "verifyTimeMs": 17.714204,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 4,
-    "proveTimeMs": 187.34026,
-    "verifyTimeMs": 15.98581,
+    "proveTimeMs": 215.396944,
+    "verifyTimeMs": 19.101157,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 5,
-    "proveTimeMs": 176.817207,
-    "verifyTimeMs": 13.459721,
+    "proveTimeMs": 199.211962,
+    "verifyTimeMs": 18.423189,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 6,
-    "proveTimeMs": 166.575503,
-    "verifyTimeMs": 14.442915,
+    "proveTimeMs": 197.655856,
+    "verifyTimeMs": 19.25339,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 7,
-    "proveTimeMs": 171.067727,
-    "verifyTimeMs": 14.495415,
+    "proveTimeMs": 182.842927,
+    "verifyTimeMs": 17.985012,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 8,
-    "proveTimeMs": 175.201721,
-    "verifyTimeMs": 16.206333,
+    "proveTimeMs": 189.675606,
+    "verifyTimeMs": 17.774501,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 9,
-    "proveTimeMs": 173.75514,
-    "verifyTimeMs": 15.468266,
+    "proveTimeMs": 190.819711,
+    "verifyTimeMs": 17.998145,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 10,
-    "proveTimeMs": 184.403526,
-    "verifyTimeMs": 15.440179,
+    "proveTimeMs": 195.972606,
+    "verifyTimeMs": 17.776845,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 11,
-    "proveTimeMs": 167.441139,
-    "verifyTimeMs": 14.603882,
+    "proveTimeMs": 188.764264,
+    "verifyTimeMs": 17.950789,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 12,
-    "proveTimeMs": 176.900759,
-    "verifyTimeMs": 15.518339,
+    "proveTimeMs": 184.59842,
+    "verifyTimeMs": 18.4903,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 13,
-    "proveTimeMs": 180.454468,
-    "verifyTimeMs": 15.334707,
+    "proveTimeMs": 187.952511,
+    "verifyTimeMs": 18.366818,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 14,
-    "proveTimeMs": 184.866959,
-    "verifyTimeMs": 15.691132,
+    "proveTimeMs": 199.250785,
+    "verifyTimeMs": 16.583939,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 15,
-    "proveTimeMs": 174.344784,
-    "verifyTimeMs": 15.411285,
+    "proveTimeMs": 190.577303,
+    "verifyTimeMs": 17.297739,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 16,
-    "proveTimeMs": 173.745988,
-    "verifyTimeMs": 15.636819,
+    "proveTimeMs": 211.702537,
+    "verifyTimeMs": 17.830953,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 17,
-    "proveTimeMs": 174.531504,
-    "verifyTimeMs": 15.49827,
+    "proveTimeMs": 189.118648,
+    "verifyTimeMs": 18.183584,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 18,
-    "proveTimeMs": 171.983663,
-    "verifyTimeMs": 15.283585,
+    "proveTimeMs": 222.353226,
+    "verifyTimeMs": 18.122443,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 19,
-    "proveTimeMs": 181.905193,
-    "verifyTimeMs": 15.414169,
+    "proveTimeMs": 184.116238,
+    "verifyTimeMs": 18.128041,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 20,
-    "proveTimeMs": 179.11688,
-    "verifyTimeMs": 15.676563,
+    "proveTimeMs": 184.218392,
+    "verifyTimeMs": 17.955384,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 21,
-    "proveTimeMs": 174.56233,
-    "verifyTimeMs": 14.412769,
+    "proveTimeMs": 209.511252,
+    "verifyTimeMs": 17.459404,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 22,
-    "proveTimeMs": 181.564948,
-    "verifyTimeMs": 15.790775,
+    "proveTimeMs": 186.451863,
+    "verifyTimeMs": 15.900708,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 23,
-    "proveTimeMs": 193.163837,
-    "verifyTimeMs": 15.699663,
+    "proveTimeMs": 189.595904,
+    "verifyTimeMs": 18.358655,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 24,
-    "proveTimeMs": 173.020693,
-    "verifyTimeMs": 15.618639,
+    "proveTimeMs": 197.309902,
+    "verifyTimeMs": 18.706387,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 25,
-    "proveTimeMs": 170.818335,
-    "verifyTimeMs": 16.569167,
+    "proveTimeMs": 191.2697,
+    "verifyTimeMs": 18.2274,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 26,
-    "proveTimeMs": 171.969356,
-    "verifyTimeMs": 17.276224,
+    "proveTimeMs": 210.621463,
+    "verifyTimeMs": 18.271107,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 27,
-    "proveTimeMs": 179.95934,
-    "verifyTimeMs": 15.865174,
+    "proveTimeMs": 189.744571,
+    "verifyTimeMs": 17.839507,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 28,
-    "proveTimeMs": 170.297914,
-    "verifyTimeMs": 15.383601,
+    "proveTimeMs": 182.643657,
+    "verifyTimeMs": 17.817226,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 29,
-    "proveTimeMs": 172.807985,
-    "verifyTimeMs": 15.875343,
+    "proveTimeMs": 191.931537,
+    "verifyTimeMs": 17.437337,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 30,
-    "proveTimeMs": 186.491328,
-    "verifyTimeMs": 14.990582,
+    "proveTimeMs": 199.326612,
+    "verifyTimeMs": 18.02762,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 31,
-    "proveTimeMs": 176.435404,
-    "verifyTimeMs": 15.707358,
+    "proveTimeMs": 187.63552,
+    "verifyTimeMs": 18.066283,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 32,
-    "proveTimeMs": 171.286942,
-    "verifyTimeMs": 15.274329,
+    "proveTimeMs": 182.608218,
+    "verifyTimeMs": 18.155104,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 33,
-    "proveTimeMs": 173.921806,
-    "verifyTimeMs": 15.24597,
+    "proveTimeMs": 191.118569,
+    "verifyTimeMs": 17.704606,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 34,
-    "proveTimeMs": 165.767328,
-    "verifyTimeMs": 15.090919,
+    "proveTimeMs": 189.66391,
+    "verifyTimeMs": 17.320804,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 35,
-    "proveTimeMs": 167.842131,
-    "verifyTimeMs": 14.456084,
+    "proveTimeMs": 186.312265,
+    "verifyTimeMs": 18.199717,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 36,
-    "proveTimeMs": 226.750002,
-    "verifyTimeMs": 15.178021,
+    "proveTimeMs": 196.949867,
+    "verifyTimeMs": 18.368295,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 37,
-    "proveTimeMs": 182.398838,
-    "verifyTimeMs": 15.136586,
+    "proveTimeMs": 183.591058,
+    "verifyTimeMs": 18.078564,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 38,
-    "proveTimeMs": 176.424387,
-    "verifyTimeMs": 15.543757,
+    "proveTimeMs": 198.464555,
+    "verifyTimeMs": 18.061966,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 39,
-    "proveTimeMs": 171.741307,
-    "verifyTimeMs": 15.322466,
+    "proveTimeMs": 185.866858,
+    "verifyTimeMs": 17.580733,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 40,
-    "proveTimeMs": 173.149979,
-    "verifyTimeMs": 14.152416,
+    "proveTimeMs": 212.735148,
+    "verifyTimeMs": 18.646303,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 41,
-    "proveTimeMs": 173.056757,
-    "verifyTimeMs": 14.512041,
+    "proveTimeMs": 187.529316,
+    "verifyTimeMs": 17.462513,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 42,
-    "proveTimeMs": 168.887655,
-    "verifyTimeMs": 15.099055,
+    "proveTimeMs": 192.90644,
+    "verifyTimeMs": 17.888544,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 43,
-    "proveTimeMs": 188.642453,
-    "verifyTimeMs": 15.799875,
+    "proveTimeMs": 185.182667,
+    "verifyTimeMs": 18.135238,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 44,
-    "proveTimeMs": 173.861376,
-    "verifyTimeMs": 14.449655,
+    "proveTimeMs": 191.779068,
+    "verifyTimeMs": 18.112836,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 45,
-    "proveTimeMs": 173.993547,
-    "verifyTimeMs": 15.813549,
+    "proveTimeMs": 196.119961,
+    "verifyTimeMs": 18.258284,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 46,
-    "proveTimeMs": 175.296197,
-    "verifyTimeMs": 16.56428,
+    "proveTimeMs": 191.323139,
+    "verifyTimeMs": 17.341897,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 47,
-    "proveTimeMs": 178.364767,
-    "verifyTimeMs": 16.267668,
+    "proveTimeMs": 193.228883,
+    "verifyTimeMs": 18.162074,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 48,
-    "proveTimeMs": 170.281407,
-    "verifyTimeMs": 13.391049,
+    "proveTimeMs": 178.269879,
+    "verifyTimeMs": 17.359828,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 49,
-    "proveTimeMs": 176.379836,
-    "verifyTimeMs": 16.155464,
+    "proveTimeMs": 188.922959,
+    "verifyTimeMs": 17.482399,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 50,
-    "proveTimeMs": 184.508775,
-    "verifyTimeMs": 15.693373,
+    "proveTimeMs": 180.322246,
+    "verifyTimeMs": 14.591343,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 51,
-    "proveTimeMs": 219.162705,
-    "verifyTimeMs": 18.378394,
+    "proveTimeMs": 234.896139,
+    "verifyTimeMs": 19.722943,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 52,
-    "proveTimeMs": 173.873283,
-    "verifyTimeMs": 15.622162,
+    "proveTimeMs": 202.007271,
+    "verifyTimeMs": 17.973519,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 53,
-    "proveTimeMs": 177.884862,
-    "verifyTimeMs": 15.821036,
+    "proveTimeMs": 193.026986,
+    "verifyTimeMs": 18.239154,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 54,
-    "proveTimeMs": 169.907283,
-    "verifyTimeMs": 15.253063,
+    "proveTimeMs": 200.151807,
+    "verifyTimeMs": 18.183362,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 55,
-    "proveTimeMs": 174.779793,
-    "verifyTimeMs": 15.552055,
+    "proveTimeMs": 203.409029,
+    "verifyTimeMs": 17.852015,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 56,
-    "proveTimeMs": 177.499549,
-    "verifyTimeMs": 16.447635,
+    "proveTimeMs": 191.933121,
+    "verifyTimeMs": 17.970901,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 57,
-    "proveTimeMs": 181.023897,
-    "verifyTimeMs": 15.446863,
+    "proveTimeMs": 185.774014,
+    "verifyTimeMs": 18.044272,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 58,
-    "proveTimeMs": 175.333258,
-    "verifyTimeMs": 15.452968,
+    "proveTimeMs": 258.51447,
+    "verifyTimeMs": 18.489595,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 59,
-    "proveTimeMs": 173.71951,
-    "verifyTimeMs": 15.422697,
+    "proveTimeMs": 189.288332,
+    "verifyTimeMs": 15.23385,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 60,
-    "proveTimeMs": 175.948126,
-    "verifyTimeMs": 15.637703,
+    "proveTimeMs": 195.011777,
+    "verifyTimeMs": 17.995616,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 61,
-    "proveTimeMs": 177.900592,
-    "verifyTimeMs": 16.165416,
+    "proveTimeMs": 189.665319,
+    "verifyTimeMs": 17.870249,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 62,
-    "proveTimeMs": 180.1813,
-    "verifyTimeMs": 50.278901,
+    "proveTimeMs": 208.941898,
+    "verifyTimeMs": 18.277263,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 63,
-    "proveTimeMs": 175.941083,
-    "verifyTimeMs": 15.321547,
+    "proveTimeMs": 200.775568,
+    "verifyTimeMs": 18.356843,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 64,
-    "proveTimeMs": 178.776104,
-    "verifyTimeMs": 15.584273,
+    "proveTimeMs": 201.730138,
+    "verifyTimeMs": 17.916436,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 65,
-    "proveTimeMs": 173.031454,
-    "verifyTimeMs": 15.443425,
+    "proveTimeMs": 190.502774,
+    "verifyTimeMs": 18.1308,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 66,
-    "proveTimeMs": 173.563938,
-    "verifyTimeMs": 16.168099,
+    "proveTimeMs": 190.774944,
+    "verifyTimeMs": 17.900971,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 67,
-    "proveTimeMs": 178.814557,
-    "verifyTimeMs": 15.515479,
+    "proveTimeMs": 187.711415,
+    "verifyTimeMs": 18.046029,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 68,
-    "proveTimeMs": 188.006005,
-    "verifyTimeMs": 16.308521,
+    "proveTimeMs": 186.974051,
+    "verifyTimeMs": 18.090762,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 69,
-    "proveTimeMs": 171.011512,
-    "verifyTimeMs": 15.357706,
+    "proveTimeMs": 201.276595,
+    "verifyTimeMs": 17.763119,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 70,
-    "proveTimeMs": 170.17393,
-    "verifyTimeMs": 14.887336,
+    "proveTimeMs": 222.40805,
+    "verifyTimeMs": 17.958689,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 71,
-    "proveTimeMs": 179.41202,
-    "verifyTimeMs": 15.672885,
+    "proveTimeMs": 202.769505,
+    "verifyTimeMs": 18.042213,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 72,
-    "proveTimeMs": 183.775005,
-    "verifyTimeMs": 15.607916,
+    "proveTimeMs": 191.884506,
+    "verifyTimeMs": 17.59643,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 73,
-    "proveTimeMs": 174.415233,
-    "verifyTimeMs": 15.430435,
+    "proveTimeMs": 190.405362,
+    "verifyTimeMs": 17.551882,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 74,
-    "proveTimeMs": 204.294984,
-    "verifyTimeMs": 19.615604,
+    "proveTimeMs": 216.681339,
+    "verifyTimeMs": 18.742158,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 75,
-    "proveTimeMs": 178.097397,
-    "verifyTimeMs": 16.75725,
+    "proveTimeMs": 211.534247,
+    "verifyTimeMs": 18.440566,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 76,
-    "proveTimeMs": 182.449058,
-    "verifyTimeMs": 16.017626,
+    "proveTimeMs": 186.351238,
+    "verifyTimeMs": 17.917271,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 77,
-    "proveTimeMs": 172.078664,
-    "verifyTimeMs": 15.608658,
+    "proveTimeMs": 186.471775,
+    "verifyTimeMs": 18.055544,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 78,
-    "proveTimeMs": 170.455641,
-    "verifyTimeMs": 16.77043,
+    "proveTimeMs": 197.100958,
+    "verifyTimeMs": 18.18375,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 79,
-    "proveTimeMs": 171.394022,
-    "verifyTimeMs": 15.648758,
+    "proveTimeMs": 190.829939,
+    "verifyTimeMs": 18.1115,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 80,
-    "proveTimeMs": 179.929794,
-    "verifyTimeMs": 15.536439,
+    "proveTimeMs": 190.681626,
+    "verifyTimeMs": 17.979199,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 81,
-    "proveTimeMs": 173.065327,
-    "verifyTimeMs": 15.489434,
+    "proveTimeMs": 189.671556,
+    "verifyTimeMs": 17.771075,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 82,
-    "proveTimeMs": 182.889045,
-    "verifyTimeMs": 15.237875,
+    "proveTimeMs": 197.013137,
+    "verifyTimeMs": 18.037878,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 83,
-    "proveTimeMs": 192.718834,
-    "verifyTimeMs": 16.251123,
+    "proveTimeMs": 196.387636,
+    "verifyTimeMs": 17.573356,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 84,
-    "proveTimeMs": 179.534934,
-    "verifyTimeMs": 16.011615,
+    "proveTimeMs": 191.208975,
+    "verifyTimeMs": 17.636667,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 85,
-    "proveTimeMs": 170.941181,
-    "verifyTimeMs": 15.316301,
+    "proveTimeMs": 190.034488,
+    "verifyTimeMs": 17.552864,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 86,
-    "proveTimeMs": 178.017394,
-    "verifyTimeMs": 15.666867,
+    "proveTimeMs": 201.910681,
+    "verifyTimeMs": 19.08298,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 87,
-    "proveTimeMs": 168.331864,
-    "verifyTimeMs": 15.344238,
+    "proveTimeMs": 192.604831,
+    "verifyTimeMs": 18.762025,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 88,
-    "proveTimeMs": 181.122947,
-    "verifyTimeMs": 15.721637,
+    "proveTimeMs": 190.897657,
+    "verifyTimeMs": 17.963335,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 89,
-    "proveTimeMs": 192.026414,
-    "verifyTimeMs": 16.553637,
+    "proveTimeMs": 203.948425,
+    "verifyTimeMs": 23.733619,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 90,
-    "proveTimeMs": 172.383515,
-    "verifyTimeMs": 15.427829,
+    "proveTimeMs": 201.651189,
+    "verifyTimeMs": 17.756076,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 91,
-    "proveTimeMs": 175.194376,
-    "verifyTimeMs": 15.272745,
+    "proveTimeMs": 191.695078,
+    "verifyTimeMs": 15.64944,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 92,
-    "proveTimeMs": 174.35168,
-    "verifyTimeMs": 15.97265,
+    "proveTimeMs": 207.751484,
+    "verifyTimeMs": 18.139178,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 93,
-    "proveTimeMs": 174.44829,
-    "verifyTimeMs": 15.361787,
+    "proveTimeMs": 204.383451,
+    "verifyTimeMs": 19.494646,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 94,
-    "proveTimeMs": 177.287418,
-    "verifyTimeMs": 15.955148,
+    "proveTimeMs": 192.605177,
+    "verifyTimeMs": 18.286774,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 95,
-    "proveTimeMs": 172.45979,
-    "verifyTimeMs": 15.59907,
+    "proveTimeMs": 191.92683,
+    "verifyTimeMs": 18.260809,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 96,
-    "proveTimeMs": 176.043602,
-    "verifyTimeMs": 15.770319,
+    "proveTimeMs": 189.934124,
+    "verifyTimeMs": 18.583418,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 97,
-    "proveTimeMs": 187.012084,
-    "verifyTimeMs": 16.103347,
+    "proveTimeMs": 190.322449,
+    "verifyTimeMs": 16.51548,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 98,
-    "proveTimeMs": 173.737822,
-    "verifyTimeMs": 15.292843,
+    "proveTimeMs": 187.968024,
+    "verifyTimeMs": 17.830419,
     "verified": true,
     "proveError": null,
     "verifyError": null
   },
   {
     "run": 99,
-    "proveTimeMs": 173.937006,
-    "verifyTimeMs": 15.620682,
-    "verified": true,
-    "proveError": null,
-    "verifyError": null
-  },
-  {
-    "run": 100,
-    "proveTimeMs": 180.232788,
-    "verifyTimeMs": 15.473157,
+    "proveTimeMs": 194.215289,
+    "verifyTimeMs": 18.196475,
     "verified": true,
     "proveError": null,
     "verifyError": null

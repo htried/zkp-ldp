@@ -4,15 +4,6 @@
 
 set -e
 
-if [ -z "$1" ]; then
-    echo "Usage: $0 <ldp>"
-    exit 1
-fi
-
-ldp=$1
-# CIRCUIT_NAME="state_streaming"
-# EXPERIMENT_DIR="$(dirname "$0")"
-# CIRCUIT_PATH="$EXPERIMENT_DIR/${CIRCUIT_NAME}.circom"
 CIRCUIT_PATH="state_streaming.circom"
 CONSTRAINTS_CSV_PATH="$(dirname "$0")/constraints.csv"
 

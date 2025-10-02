@@ -52,7 +52,8 @@ function getSuccessExample(k) {
         new_attribution_value: "25", // New attribution value to add
         new_rappor_nonce: "111111111",
         state_comm_randomness: "111111111",
-        new_fingerprint
+        new_fingerprint,
+        new_fingerprint_nonce: "111111111"
     };
 }
 
@@ -116,7 +117,7 @@ async function sign_circom_inputs(unsigned_input) {
     unsigned_input.initial_state_r8x = F.toObject(state_signature.R8[0]).toString();
     unsigned_input.initial_state_r8y = F.toObject(state_signature.R8[1]).toString();
     unsigned_input.initial_state_s = state_signature.S.toString();
-    const response_vec_string = [unsigned_input.new_ip, unsigned_input.new_geohash, unsigned_input.new_rappor_nonce, unsigned_input.new_attribution_value];
+    const response_vec_string = [unsigned_input.new_ip, unsigned_input.new_geohash, unsigned_input.new_rappor_nonce, unsigned_input.new_attribution_value, unsigned_input.new_fingerprint_nonce];
     let response_hash = poseidon(response_vec_string.map(x => poseidon.F.e(x)));
     const response_signature = eddsa.signPoseidon(prvKey, response_hash);
     unsigned_input.new_user_info_r8x = F.toObject(response_signature.R8[0]).toString();

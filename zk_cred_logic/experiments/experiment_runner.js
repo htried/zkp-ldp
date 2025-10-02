@@ -8,7 +8,7 @@ const { execSync } = require("child_process");
 async function main() {
     const k = parseInt(process.argv[2]);
     const N = parseInt(process.argv[3]);
-    const outputFile = process.argv[4] || `../../results/experiment_results_k${k}_N${N}.json`;
+    const outputFile = process.argv[4] || `../../results/experiment_results_k${k}.json`;
 
     // Create output directory if it doesn't exist
     const outputDir = outputFile.substring(0, outputFile.lastIndexOf('/'));

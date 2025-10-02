@@ -173,6 +173,7 @@ template ValidateInitialStreamingState() {
 template ValidateServerStreamingResponse() {
     signal input new_geohash;
     signal input new_rappor_nonce;
+    signal input new_fingerprint_nonce;
     signal input server_response_r8x;
     signal input server_response_r8y;
     signal input server_response_s;
@@ -181,9 +182,10 @@ template ValidateServerStreamingResponse() {
 
     signal output nullifier;
 
-    component response_hasher = Poseidon(2);
+    component response_hasher = Poseidon(3);
     response_hasher.inputs[0] <== new_geohash;
     response_hasher.inputs[1] <== new_rappor_nonce;
+    response_hasher.inputs[2] <== new_fingerprint_nonce;
 
     component responseVerifier = EdDSAPoseidonVerifier();
     responseVerifier.enabled <== 1;
@@ -240,25 +242,45 @@ template CreateUpdatedStreamingState() {
     new_geohash_sum <== geohash_sum + new_geohash;
     new_state_counter <== state_counter + 1;
     
-    // Calculate new average geohash from running sums
-    // Since we can't use multiplication in constraints, we'll use a different approach
-    // We'll calculate the new average by converting the running sums to coordinates
-    // and then generating a new geohash from those coordinates
+    // Calculate new average coordinates using integer division
+    // Use witness calculation to compute the division, then verify it's correct
     
-    // For simplicity, we'll use the running sums directly to generate a new average geohash
-    // This avoids the complex constraint issues while maintaining the geographic logic
+    signal new_avg_lat;
+    signal new_avg_lng;
+    signal remainder_lat;
+    signal remainder_lng;
     
-    // Generate 20-bit geohash prefix from the running sums
-    // We'll use the running sums as if they were the average coordinates
-    // This is an approximation but maintains the geographic proximity requirement
+    // Calculate the quotient and remainder using witness calculation
+    new_avg_lat <-- new_lat_sum \ new_state_counter;
+    remainder_lat <-- new_lat_sum % new_state_counter;
+    
+    new_avg_lng <-- new_lng_sum \ new_state_counter;
+    remainder_lng <-- new_lng_sum % new_state_counter;
+    
+    // Verify the division is correct
+    new_avg_lat * new_state_counter + remainder_lat === new_lat_sum;
+    new_avg_lng * new_state_counter + remainder_lng === new_lng_sum;
+    
+    // Ensure remainders are less than divisor
+    component remainder_lat_lt = LessThan(32);
+    remainder_lat_lt.in[0] <== remainder_lat;
+    remainder_lat_lt.in[1] <== new_state_counter;
+    remainder_lat_lt.out === 1;
+    
+    component remainder_lng_lt = LessThan(32);
+    remainder_lng_lt.in[0] <== remainder_lng;
+    remainder_lng_lt.in[1] <== new_state_counter;
+    remainder_lng_lt.out === 1;
+    
+    // Generate 20-bit geohash prefix from the new average coordinates
     component new_avg_prefix = CoordinatesToGeohashPrefix();
-    new_avg_prefix.lat <== new_lat_sum;
-    new_avg_prefix.lng <== new_lng_sum;
+    new_avg_prefix.lat <== new_avg_lat;
+    new_avg_prefix.lng <== new_avg_lng;
     
-    // Convert running sums back to full geohash for storage
+    // Convert average coordinates back to full geohash for storage
     component new_avg_coords_to_geohash = CoordinatesToGeohash();
-    new_avg_coords_to_geohash.lat <== new_lat_sum;
-    new_avg_coords_to_geohash.lng <== new_lng_sum;
+    new_avg_coords_to_geohash.lat <== new_avg_lat;
+    new_avg_coords_to_geohash.lng <== new_avg_lng;
     
     // Convert geohash bits back to a number
     component new_avg_geohash_num = Bits2Num(64);
@@ -308,6 +330,7 @@ template AttemptStreamingStateUpdate() {
     // Inputs for new state
     signal input new_geohash;
     signal input new_rappor_nonce;
+    signal input new_fingerprint_nonce;
     signal input new_user_info_r8x;
     signal input new_user_info_r8y;
     signal input new_user_info_s;
@@ -318,6 +341,7 @@ template AttemptStreamingStateUpdate() {
     signal output old_state_nullifier;
     signal output server_response_nullifier;
     signal output new_state_commitment;
+    signal output new_fingerprint_commitment;
     signal output new_geohash_sum;
     signal output new_state_counter;
     signal output new_avg_geohash;
@@ -347,6 +371,7 @@ template AttemptStreamingStateUpdate() {
     component serverResponseValidator = ValidateServerStreamingResponse();
     serverResponseValidator.new_geohash <== new_geohash;
     serverResponseValidator.new_rappor_nonce <== new_rappor_nonce;
+    serverResponseValidator.new_fingerprint_nonce <== new_fingerprint_nonce;
     serverResponseValidator.server_response_r8x <== new_user_info_r8x;
     serverResponseValidator.server_response_r8y <== new_user_info_r8y;
     serverResponseValidator.server_response_s <== new_user_info_s;

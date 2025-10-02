@@ -105,6 +105,7 @@ template ValidateServerResponse() {
     signal input new_ip;
     signal input new_geohash;
     signal input new_rappor_nonce;
+    signal input new_fingerprint_nonce;
     signal input server_response_r8x;
     signal input server_response_r8y;
     signal input server_response_s;
@@ -113,11 +114,12 @@ template ValidateServerResponse() {
 
     signal output nullifier;
 
-    var len = 1 + 1 + 1;
+    var len = 1 + 1 + 1 + 1;
     component response_hasher = Poseidon(len);
     response_hasher.inputs[0] <== new_ip;
     response_hasher.inputs[1] <== new_geohash;
     response_hasher.inputs[2] <== new_rappor_nonce;
+    response_hasher.inputs[3] <== new_fingerprint_nonce;
 
     // Verify initial state signature
     component responseVerifier = EdDSAPoseidonVerifier();
@@ -295,6 +297,7 @@ template AttemptStateUpdate(num_ips) {
     signal input state_comm_randomness;
     // Browser-provided new fingerprint.
     signal input new_fingerprint[2];
+    signal input new_fingerprint_nonce;
 
     // Outputs
     // Nullifier so a client can't reuse a previously used state.
@@ -303,6 +306,9 @@ template AttemptStateUpdate(num_ips) {
     signal output server_response_nullifier;
     // Commitment to the client's new state which the server signs.
     signal output new_state_commitment;
+    //Commitment to the client's fingerprint.
+    signal output new_fingerprint_commitment;
+
     // Rappor reporting data
     signal output rappor_response;
 
@@ -326,6 +332,7 @@ template AttemptStateUpdate(num_ips) {
     serverResponseValidator.new_ip <== new_ip;
     serverResponseValidator.new_geohash <== new_geohash;
     serverResponseValidator.new_rappor_nonce <== new_rappor_nonce;
+    serverResponseValidator.new_fingerprint_nonce <== new_fingerprint_nonce;
     serverResponseValidator.server_response_r8x <== new_user_info_r8x;
     serverResponseValidator.server_response_r8y <== new_user_info_r8y;
     serverResponseValidator.server_response_s <== new_user_info_s;
@@ -389,34 +396,6 @@ template AttemptStateUpdate(num_ips) {
     for (var i = 0; i < num_ips; i++) {
         any_prefix_match.in[i] <== all_bits_equal[i];
     }
- 
-    // OLD APPROACH BASED ON NEIGHBOR CHECKS
-    // component is_new_geohash_neighbor = MultiOR(9 * num_ips);
-    // for (var i = 0; i < num_ips; i++) {
-    //     for (var d = 0; d < 9; d++) {
-    //         is_new_geohash_neighbor.in[i*9 + d] <== IsEqual()([new_geohash_neighbors[d], geohashes[i]]);
-    //     }
-    // }
-
-    // // Neighbors of the new geohash + the current geohash.
-    // // One of the current geohashes is expectedto be in this list.
-    // component neighbor_components[8];
-    // signal new_geohash_neighbors[9]; 
-    // for(var d = 0; d < 8; d++) {
-    //     neighbor_components[d] = Neighbor();
-    //     neighbor_components[d].hash <== new_geohash_bits;
-    //     neighbor_components[d].direction <== d;
-    //     neighbor_components[d].offset <== geohash_offset;
-    //     new_geohash_neighbors[d] <== Bits2Num(64)(neighbor_components[d].neighbor);
-    // }
-    // new_geohash_neighbors[8] <== new_geohash;
-
-    // component is_new_geohash_neighbor = MultiOR(9 * num_ips);
-    // for (var i = 0; i < num_ips; i++) {
-    //     for (var d = 0; d < 9; d++) {
-    //         is_new_geohash_neighbor.in[i*9 + d] <== IsEqual()([new_geohash_neighbors[d], geohashes[i]]);
-    //     }
-    // }
 
     // Compute values for responses
     component is_zero_for_distinct_count[num_ips];
@@ -456,6 +435,13 @@ template AttemptStateUpdate(num_ips) {
     similarity_score_checker.in[0] <== fingerprint_similarity_threshold;
     similarity_score_checker.in[1] <== fingerprint_similarity;
     similarity_score_checker.out === 1;
+
+    // Commitment to the client's fingerprint.
+    component fingerprint_commitment_hasher = Poseidon(3);
+    fingerprint_commitment_hasher.inputs[0] <== new_fingerprint_nonce;
+    fingerprint_commitment_hasher.inputs[1] <== new_fingerprint[0];
+    fingerprint_commitment_hasher.inputs[2] <== new_fingerprint[1];
+    new_fingerprint_commitment <== fingerprint_commitment_hasher.out;
 
     // Produce RAPPOR response
     // Set up stuff
