@@ -53,6 +53,25 @@ zk_cred_cold_start_logic/*.wtns
 zk_cred_cold_start_logic/*.ptau
 zk_cred_cold_start_logic/*.zkey
 
+cold_start_logic/circomlib/
+cold_start_logic/*_cpp/
+cold_start_logic/*_js/
+cold_start_logic/ecdsa/
+cold_start_logic/proofs/
+cold_start_logic/publics/
+cold_start_logic/witnesses/
+cold_start_logic/*.sym
+cold_start_logic/*.r1cs
+cold_start_logic/*.wasm
+
+cold_start_logic/input.json
+cold_start_logic/verification_key.json
+cold_start_logic/proof.json
+cold_start_logic/public.json
+cold_start_logic/*.wtns
+cold_start_logic/*.ptau
+cold_start_logic/*.zkey
+
 circomlib/
 geohash_logic/build/
 
