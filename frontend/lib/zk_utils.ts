@@ -20,6 +20,19 @@ export interface UnsignedInput {
   new_user_info_s?: string;
 }
 
+export interface HostedProveResult {
+  proof: Record<string, unknown>;
+  publicSignals: string[];
+  isValid: boolean;
+  timing: {
+    signMs: number;
+    proveMs: number;
+    verifyMs: number;
+  };
+  proverMode: 'local-snarkjs' | 'remote-prover';
+  circuitId: string;
+}
+
 /**
  * Signs the input data for circom circuit
  * @param unsigned_input Input data to be signed
@@ -114,4 +127,27 @@ export async function verifyStateUpdate(input: UnsignedInput, config_path: strin
     console.error("Verification failed:", error);
     return false;
   }
+}
+
+export async function proveStateUpdateViaApi(
+  input: UnsignedInput,
+  circuitId: string
+): Promise<HostedProveResult> {
+  const response = await fetch('/api/prove', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      input,
+      circuitId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Hosted prover request failed: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
 }

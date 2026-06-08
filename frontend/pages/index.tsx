@@ -13,7 +13,7 @@ import {
   hashTo250BitStrings,
   ipToIntString
 } from '../lib/utils';
-import { UnsignedInput, sign_circom_inputs, verifyStateUpdate } from '../lib/zk_utils';
+import { UnsignedInput, proveStateUpdateViaApi, sign_circom_inputs, verifyStateUpdate } from '../lib/zk_utils';
 
 // Add types for stored state
 interface StoredState {
@@ -24,6 +24,7 @@ interface StoredState {
 }
 
 export default function Home() {
+  const enableBrowserProveFallback = process.env.NEXT_PUBLIC_ENABLE_BROWSER_PROVE_FALLBACK === 'true';
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [fingerprintHashes, setFingerprintHashes] = useState<string[]>([]);
@@ -230,8 +231,9 @@ export default function Home() {
         fingerprint: currentState.fingerprint
       });
 
-      // Set the correct circuit files based on server configuration
-      const circuitPath = `/gh_${options.serverGeohashBits}_fp_${options.serverFingerprintThreshold}`;
+      // Select circuit artifacts based on server configuration
+      const circuitId = `gh_${options.serverGeohashBits}_fp_${options.serverFingerprintThreshold}`;
+      const browserCircuitPath = `/${circuitId}`;
 
       // Extract just the geohash part from the formatted strings
       const cleanGeohashes = geohashes.length > 0 ? geohashes.map(hash => {
@@ -278,14 +280,27 @@ export default function Home() {
         }
       });
 
-      const provingEndTime = performance.now();
-      setProvingTime(provingEndTime - startTime);
+      const localSignEndTime = performance.now();
+      const localSignTimeMs = localSignEndTime - startTime;
 
-      // Now verify the state update
-      const verifyStartTime = performance.now();
-      const isValid = await verifyStateUpdate(signedInput, circuitPath);
-      const verifyEndTime = performance.now();
-      setVerifyingTime(verifyEndTime - verifyStartTime);
+      let isValid = false;
+      try {
+        const proveResult = await proveStateUpdateViaApi(input, circuitId);
+        isValid = proveResult.isValid;
+        setProvingTime(proveResult.timing.signMs + proveResult.timing.proveMs);
+        setVerifyingTime(proveResult.timing.verifyMs);
+      } catch (apiError) {
+        if (!enableBrowserProveFallback) {
+          throw apiError;
+        }
+
+        // Optional local fallback while developing/debugging API deployments.
+        const browserVerifyStart = performance.now();
+        isValid = await verifyStateUpdate(signedInput, browserCircuitPath);
+        const browserVerifyEnd = performance.now();
+        setProvingTime(localSignTimeMs);
+        setVerifyingTime(browserVerifyEnd - browserVerifyStart);
+      }
 
       setVerificationStatus(isValid ? 'Verification successful!' : 'Verification failed');
 
