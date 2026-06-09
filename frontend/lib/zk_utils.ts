@@ -4,12 +4,14 @@ export interface UnsignedInput {
   ips: string[];
   geohashes: string[];
   last_fingerprint: string[];
+  yob: string[];
   users_prf_seed: string;
   state_counter: string;
   initial_comm_rand: string;
   new_ip: string;
   new_geohash: string;
   new_rappor_nonce: string;
+  new_fingerprint_nonce: string;
   state_comm_randomness: string;
   new_fingerprint: string[];
   initial_state_r8x?: string;
@@ -18,6 +20,28 @@ export interface UnsignedInput {
   new_user_info_r8x?: string;
   new_user_info_r8y?: string;
   new_user_info_s?: string;
+}
+
+function chainedPoseidonHash(
+  poseidon: Awaited<ReturnType<typeof buildPoseidon>>,
+  values: string[]
+) {
+  let prevHash = "0";
+  const totalBlocks = Math.ceil(values.length / 15);
+
+  for (let blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
+    const start = blockIndex * 15;
+    const chunk = values.slice(start, start + 15);
+    const paddedChunk = [...chunk];
+    while (paddedChunk.length < 15) {
+      paddedChunk.push("0");
+    }
+    paddedChunk.push(blockIndex === 0 ? "0" : prevHash);
+    const blockHash = poseidon(paddedChunk);
+    prevHash = poseidon.F.toObject(blockHash).toString();
+  }
+
+  return prevHash;
 }
 
 export interface HostedProveResult {
@@ -33,19 +57,34 @@ export interface HostedProveResult {
   circuitId: string;
 }
 
+type CryptoContext = {
+  poseidon: Awaited<ReturnType<typeof buildPoseidon>>;
+  eddsa: Awaited<ReturnType<typeof buildEddsa>>;
+  babyjubField: Awaited<ReturnType<typeof buildBabyjub>>['F'];
+};
+
+let cryptoContextPromise: Promise<CryptoContext> | null = null;
+
+async function getCryptoContext(): Promise<CryptoContext> {
+  if (!cryptoContextPromise) {
+    cryptoContextPromise = (async () => {
+      const poseidon = await buildPoseidon();
+      const eddsa = await buildEddsa();
+      const babyjub = await buildBabyjub();
+      const babyjubField = babyjub.F;
+      return { poseidon, eddsa, babyjubField };
+    })();
+  }
+  return cryptoContextPromise;
+}
+
 /**
  * Signs the input data for circom circuit
  * @param unsigned_input Input data to be signed
  * @returns Signed input data ready for the circuit
  */
 export async function sign_circom_inputs(unsigned_input: UnsignedInput): Promise<UnsignedInput> {
-  // Initialize the different crypto libraries.
-  const poseidon = await buildPoseidon();
-  const F_Poseidon = poseidon.F;
-
-  const eddsa = await buildEddsa();
-  const babyJub = await buildBabyjub();
-  const F = babyJub.F;
+  const { poseidon, eddsa, babyjubField } = await getCryptoContext();
 
   // Define private key (32 bytes).
   const prvKey = Buffer.from("0001020304050607080900010203040506070809000102030405060708090001", "hex");
@@ -58,28 +97,30 @@ export async function sign_circom_inputs(unsigned_input: UnsignedInput): Promise
     ...unsigned_input.ips, 
     ...unsigned_input.geohashes, 
     ...unsigned_input.last_fingerprint,
+    ...unsigned_input.yob,
     unsigned_input.users_prf_seed, 
     unsigned_input.state_counter
   ];
-  const state_hash = poseidon(state_vec_string);
+  const state_hash = chainedPoseidonHash(poseidon, state_vec_string);
 
   // Create commitment vector and hash
-  const comm_vec = [unsigned_input.initial_comm_rand, F_Poseidon.toObject(state_hash).toString()];
+  const comm_vec = [unsigned_input.initial_comm_rand, state_hash];
   const comm_hash = poseidon(comm_vec);
   
   // Sign the state hash
   const state_signature = eddsa.signPoseidon(prvKey, comm_hash);
 
   // Add signature to input
-  unsigned_input.initial_state_r8x = F.toObject(state_signature.R8[0]).toString();
-  unsigned_input.initial_state_r8y = F.toObject(state_signature.R8[1]).toString();
+  unsigned_input.initial_state_r8x = babyjubField.toObject(state_signature.R8[0]).toString();
+  unsigned_input.initial_state_r8y = babyjubField.toObject(state_signature.R8[1]).toString();
   unsigned_input.initial_state_s = state_signature.S.toString();
 
   // Create response vector and hash
   const response_vec_string = [
     unsigned_input.new_ip, 
     unsigned_input.new_geohash, 
-    unsigned_input.new_rappor_nonce
+    unsigned_input.new_rappor_nonce,
+    unsigned_input.new_fingerprint_nonce,
   ];
   const response_hash = poseidon(response_vec_string);
 
@@ -87,8 +128,8 @@ export async function sign_circom_inputs(unsigned_input: UnsignedInput): Promise
   const response_signature = eddsa.signPoseidon(prvKey, response_hash);
 
   // Add response signature to input
-  unsigned_input.new_user_info_r8x = F.toObject(response_signature.R8[0]).toString();
-  unsigned_input.new_user_info_r8y = F.toObject(response_signature.R8[1]).toString();
+  unsigned_input.new_user_info_r8x = babyjubField.toObject(response_signature.R8[0]).toString();
+  unsigned_input.new_user_info_r8y = babyjubField.toObject(response_signature.R8[1]).toString();
   unsigned_input.new_user_info_s = response_signature.S.toString();
 
   return unsigned_input;

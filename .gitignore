@@ -160,3 +160,4 @@ rappor_logic/*.ptau
 rappor_logic/*.zkey
 
 pots/
+.vercel

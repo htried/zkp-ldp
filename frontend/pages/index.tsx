@@ -24,6 +24,7 @@ interface StoredState {
 }
 
 export default function Home() {
+  const DEMO_CIRCUIT_ID = 'gh_20_fp_400';
   const enableBrowserProveFallback = process.env.NEXT_PUBLIC_ENABLE_BROWSER_PROVE_FALLBACK === 'true';
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,9 +53,6 @@ export default function Home() {
     // Client-side configuration
     fingerprintSimilarity: 90, // percentage
     geohashDistance: 0.1, // degrees
-    // Server-side configuration
-    serverGeohashBits: 20,
-    serverFingerprintThreshold: 400
   });
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [signatures, setSignatures] = useState<{
@@ -67,18 +65,6 @@ export default function Home() {
   const [isVerificationInputsExpanded, setIsVerificationInputsExpanded] = useState<boolean>(false);
 
   const N = 5;
-
-  const geohashConfigs = [
-    { bits: 15, label: "3 characters (15 bits, ~156km x ~156km bounding box)" },
-    { bits: 20, label: "4 characters (20 bits, ~39km x ~19.5km bounding box)" },
-    { bits: 25, label: "5 characters (25 bits, ~5km x ~5km bounding box)" }
-  ];
-
-  const fingerprintConfigs = [
-    { threshold: 350, label: "Loose (70% similarity)" },
-    { threshold: 400, label: "Medium (80% similarity)" },
-    { threshold: 450, label: "Strict (90% similarity)" }
-  ];
 
   // Load state from localStorage on component mount and generate initial state
   useEffect(() => {
@@ -232,7 +218,7 @@ export default function Home() {
       });
 
       // Select circuit artifacts based on server configuration
-      const circuitId = `gh_${options.serverGeohashBits}_fp_${options.serverFingerprintThreshold}`;
+      const circuitId = DEMO_CIRCUIT_ID;
       const browserCircuitPath = `/${circuitId}`;
 
       // Extract just the geohash part from the formatted strings
@@ -247,12 +233,14 @@ export default function Home() {
         ips: ipAddresses.length > 0 ? ipAddresses.map(ipToIntString) : ["0", "0", "0", "0", "0"],
         geohashes: cleanGeohashes.map(geohashToIntString),
         last_fingerprint: currentState.fingerprint,
+        yob: ["48", "48"],
         users_prf_seed: "1111111111",
         state_counter: "0",
         initial_comm_rand: "111111111",
         new_ip: ipToIntString(currentState.ip),
         new_geohash: geohashToIntString(cleanNewGeohash),
         new_rappor_nonce: "111111111",
+        new_fingerprint_nonce: "111111111",
         state_comm_randomness: "111111111",
         new_fingerprint: fingerprintHashes[0] ? fingerprintHashes[0].split(',') : ["0", "0"],
         initial_state_r8x: "",
@@ -263,25 +251,8 @@ export default function Home() {
         new_user_info_s: ""
       };
 
-      // Sign the input data first to get the signatures
-      const signedInput = await sign_circom_inputs(input);
-
-      // Update signatures regardless of verification result
-      setSignatures({
-        initial_state: {
-          r8x: signedInput.initial_state_r8x || "Not available",
-          r8y: signedInput.initial_state_r8y || "Not available",
-          s: signedInput.initial_state_s || "Not available"
-        },
-        new_user_info: {
-          r8x: signedInput.new_user_info_r8x || "Not available",
-          r8y: signedInput.new_user_info_r8y || "Not available",
-          s: signedInput.new_user_info_s || "Not available"
-        }
-      });
-
-      const localSignEndTime = performance.now();
-      const localSignTimeMs = localSignEndTime - startTime;
+      // Compute signatures in parallel for UI display without blocking proving.
+      const signaturePromise = sign_circom_inputs(structuredClone(input));
 
       let isValid = false;
       try {
@@ -289,15 +260,51 @@ export default function Home() {
         isValid = proveResult.isValid;
         setProvingTime(proveResult.timing.signMs + proveResult.timing.proveMs);
         setVerifyingTime(proveResult.timing.verifyMs);
+
+        // Best-effort signature display update.
+        signaturePromise
+          .then((signedInput) => {
+            setSignatures({
+              initial_state: {
+                r8x: signedInput.initial_state_r8x || "Not available",
+                r8y: signedInput.initial_state_r8y || "Not available",
+                s: signedInput.initial_state_s || "Not available"
+              },
+              new_user_info: {
+                r8x: signedInput.new_user_info_r8x || "Not available",
+                r8y: signedInput.new_user_info_r8y || "Not available",
+                s: signedInput.new_user_info_s || "Not available"
+              }
+            });
+          })
+          .catch(() => {
+            // Signature rendering is auxiliary; proving result is the source of truth.
+          });
       } catch (apiError) {
         if (!enableBrowserProveFallback) {
           throw apiError;
         }
 
         // Optional local fallback while developing/debugging API deployments.
+        const signedInput = await signaturePromise;
+        setSignatures({
+          initial_state: {
+            r8x: signedInput.initial_state_r8x || "Not available",
+            r8y: signedInput.initial_state_r8y || "Not available",
+            s: signedInput.initial_state_s || "Not available"
+          },
+          new_user_info: {
+            r8x: signedInput.new_user_info_r8x || "Not available",
+            r8y: signedInput.new_user_info_r8y || "Not available",
+            s: signedInput.new_user_info_s || "Not available"
+          }
+        });
+
         const browserVerifyStart = performance.now();
         isValid = await verifyStateUpdate(signedInput, browserCircuitPath);
         const browserVerifyEnd = performance.now();
+        const localSignEndTime = performance.now();
+        const localSignTimeMs = localSignEndTime - startTime;
         setProvingTime(localSignTimeMs);
         setVerifyingTime(browserVerifyEnd - browserVerifyStart);
       }
@@ -522,21 +529,13 @@ export default function Home() {
             <ul className="list-disc pl-4 space-y-2">
               <li>The client's current location is within the specified geohash precision:
                 <ul className="list-disc pl-4 mt-1">
-                  <li>Using {options.serverGeohashBits} bits of precision</li>
-                  <li>Bounding box size: {
-                    options.serverGeohashBits === 15 ? "~156km x ~156km" :
-                      options.serverGeohashBits === 20 ? "~39km x ~19.5km" :
-                        "~5km x ~5km"
-                  }</li>
+                  <li>Using 20 bits of precision</li>
+                  <li>Bounding box size: ~39km x ~19.5km</li>
                 </ul>
               </li>
               <li>The client's current browser fingerprint is sufficiently similar to their previous state:
                 <ul className="list-disc pl-4 mt-1">
-                  <li>Required similarity: {
-                    options.serverFingerprintThreshold === 350 ? "70%" :
-                      options.serverFingerprintThreshold === 400 ? "80%" :
-                        "90%"
-                  }</li>
+                  <li>Required similarity: 80%</li>
                   <li>Generated similarity: {options.fingerprintSimilarity}%</li>
                 </ul>
               </li>
@@ -589,9 +588,11 @@ export default function Home() {
                         ips: originalState.ips.map(ipToIntString),
                         geohashes: originalState.geohashes.map(geohashToIntString),
                         last_fingerprint: originalState.fingerprint,
+                        yob: ["48", "48"],
                         users_prf_seed: "1111111111",
                         state_counter: "0",
                         initial_comm_rand: "111111111",
+                        new_fingerprint_nonce: "111111111",
                         state_comm_randomness: "111111111"
                       }, null, 2)}
                     </pre>
@@ -628,56 +629,14 @@ export default function Home() {
         )}
 
         <div className="mb-4">
-          <h2 className="text-xl font-semibold mb-2">Server-side verification parameters</h2>
+          <h2 className="text-xl font-semibold mb-2">Server-side verification parameters (fixed for demo)</h2>
           <div className="bg-gray-800 p-4 rounded mb-4">
-            <p className="mb-2">These parameters determine how strict the verification process is. In this demo, you can set these parameters yourself as if you were the server. However, calculating these thresholds based on exact statistics may not be privacy preserving. Our work validates a system for using <strong><a href='https://en.wikipedia.org/wiki/Local_differential_privacy' target='_blank' rel='noopener noreferrer' className="orange-link">local differential privacy</a></strong> (specifically <a href='https://github.com/google/rappor' target='_blank' rel='noopener noreferrer' className="orange-link">RAPPOR</a>) to calculate these thresholds.</p>
+            <p className="mb-2">These parameters determine how strict the verification process is. For this demo deployment we use one fixed configuration to maximize performance and simplify backend prover routing. Calculating these thresholds based on exact statistics may not be privacy preserving; our work validates using <strong><a href='https://en.wikipedia.org/wiki/Local_differential_privacy' target='_blank' rel='noopener noreferrer' className="orange-link">local differential privacy</a></strong> (specifically <a href='https://github.com/google/rappor' target='_blank' rel='noopener noreferrer' className="orange-link">RAPPOR</a>) to calibrate thresholds.</p>
             <ul className="list-disc pl-4 space-y-2">
-              <li><strong>Geohash precision:</strong> Controls how precise the location verification is:
-                <ul className="list-disc pl-4 mt-1">
-                  <li>3 characters (15 bits): ~156km x ~156km bounding box</li>
-                  <li>4 characters (20 bits): ~39km x ~19.5km bounding box</li>
-                  <li>5 characters (25 bits): ~5km x ~5km bounding box</li>
-                </ul>
-              </li>
-              <li><strong>Fingerprint similarity:</strong> Controls how similar fingerprints must be to pass verification:
-                <ul className="list-disc pl-4 mt-1">
-                  <li>Loose: 70% similarity required</li>
-                  <li>Medium: 80% similarity required</li>
-                  <li>Strict: 90% similarity required</li>
-                </ul>
-              </li>
+              <li><strong>Geohash precision:</strong> 20 bits (~39km x ~19.5km bounding box)</li>
+              <li><strong>Fingerprint similarity threshold:</strong> 80% (medium)</li>
+              <li><strong>Circuit profile:</strong> <code>{DEMO_CIRCUIT_ID}</code></li>
             </ul>
-
-            <div className="row mt-4">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Geohash precision</label>
-                <select
-                  className="form-select bg-gray-800 text-white border-2 border-gray-700 hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 rounded-lg p-2 cursor-pointer transition-colors duration-200"
-                  value={options.serverGeohashBits}
-                  onChange={(e) => setOptions({ ...options, serverGeohashBits: parseInt(e.target.value) })}
-                >
-                  {geohashConfigs.map(config => (
-                    <option key={config.bits} value={config.bits}>
-                      {config.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Fingerprint similarity</label>
-                <select
-                  className="form-select bg-gray-800 text-white border-2 border-gray-700 hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 rounded-lg p-2 cursor-pointer transition-colors duration-200"
-                  value={options.serverFingerprintThreshold}
-                  onChange={(e) => setOptions({ ...options, serverFingerprintThreshold: parseInt(e.target.value) })}
-                >
-                  {fingerprintConfigs.map(config => (
-                    <option key={config.threshold} value={config.threshold}>
-                      {config.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
           </div>
         </div>
 

@@ -20,6 +20,19 @@ type ErrorResponse = {
   details?: string;
 };
 
+const verificationKeyCache = new Map<string, unknown>();
+
+function hasInputSignatures(input: UnsignedInput): boolean {
+  return Boolean(
+    input.initial_state_r8x &&
+      input.initial_state_r8y &&
+      input.initial_state_s &&
+      input.new_user_info_r8x &&
+      input.new_user_info_r8y &&
+      input.new_user_info_s
+  );
+}
+
 function getProverMode(): ProverMode {
   return process.env.PROVER_MODE === 'remote-prover' ? 'remote-prover' : 'local-snarkjs';
 }
@@ -64,6 +77,15 @@ async function proveRemotely(
   };
 }
 
+async function getVerificationKey(vKeyPath: string): Promise<any> {
+  const cached = verificationKeyCache.get(vKeyPath);
+  if (cached) return cached;
+  const vKeyRaw = await readFile(vKeyPath, 'utf8');
+  const vKey = JSON.parse(vKeyRaw);
+  verificationKeyCache.set(vKeyPath, vKey);
+  return vKey;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ProveResponse | ErrorResponse>
@@ -97,15 +119,24 @@ export default async function handler(
     if (!inputData) {
       return res.status(400).json({ error: 'Request body is required' });
     }
-    if (!Array.isArray(inputData.ips) || !Array.isArray(inputData.geohashes) || !Array.isArray(inputData.last_fingerprint)) {
-      return res.status(400).json({ error: 'input.ips, input.geohashes, and input.last_fingerprint are required arrays' });
+    if (
+      !Array.isArray(inputData.ips) ||
+      !Array.isArray(inputData.geohashes) ||
+      !Array.isArray(inputData.last_fingerprint) ||
+      !Array.isArray(inputData.yob)
+    ) {
+      return res.status(400).json({
+        error: 'input.ips, input.geohashes, input.last_fingerprint, and input.yob are required arrays',
+      });
     }
 
     const circuitId = resolveCircuitId((requestBody as ProveRequestBody).circuitId);
     const proverMode = getProverMode();
 
     const signStart = performance.now();
-    const signedInput = await sign_circom_inputs(inputData);
+    const signedInput = hasInputSignatures(inputData)
+      ? inputData
+      : await sign_circom_inputs(inputData);
     const signEnd = performance.now();
 
     const circuitPath = path.join(process.cwd(), 'public', circuitId);
@@ -121,8 +152,7 @@ export default async function handler(
     const proveEnd = performance.now();
 
     const verifyStart = performance.now();
-    const vKeyRaw = await readFile(vKeyPath, 'utf8');
-    const vKey = JSON.parse(vKeyRaw);
+    const vKey = await getVerificationKey(vKeyPath);
     const isValid = await snarkjs.groth16.verify(vKey, publicSignals, proof);
     const verifyEnd = performance.now();
 

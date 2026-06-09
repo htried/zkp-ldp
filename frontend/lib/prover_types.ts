@@ -1,15 +1,7 @@
 import { UnsignedInput } from './zk_utils';
 
 export const SUPPORTED_CIRCUIT_IDS = [
-  'gh_15_fp_350',
-  'gh_15_fp_400',
-  'gh_15_fp_450',
-  'gh_20_fp_350',
   'gh_20_fp_400',
-  'gh_20_fp_450',
-  'gh_25_fp_350',
-  'gh_25_fp_400',
-  'gh_25_fp_450',
 ] as const;
 
 export type CircuitId = (typeof SUPPORTED_CIRCUIT_IDS)[number];

@@ -95,3 +95,25 @@ Use Rapidsnark binaries (or go-rapidsnark wrappers) on a real server and keep br
    - browser `snarkjs` baseline,
    - server witnesscalc + Rapidsnark,
    - end-to-end latency and throughput under load.
+
+## CVM compile pipeline (upgraded attempt)
+
+The repo now includes `prove_verify/build_cvm_artifacts.sh` to compile circuits with the `circom_cvm` fork and generate:
+
+- `state.cvm` (CVM assembly)
+- `state.wcd` (witnesscalc bytecode)
+- plus `state.wasm` / `state.r1cs` for parity checks
+
+Run:
+
+```bash
+./prove_verify/build_cvm_artifacts.sh /path/to/state.circom "AttemptStateUpdate(5)"
+```
+
+Output is written to `prove_verify/cvm_artifacts/`.
+
+Current status:
+
+- `circom_cvm` compilation works.
+- `cvm-compile` to `.wcd` works.
+- `calc-witness` currently fails fast with assertion errors on old input payloads, which indicates input/circuit-shape mismatch (the upgraded circuit expects fields/signing flow that differ from the deployed `gh_20_fp_400` artifact set).
