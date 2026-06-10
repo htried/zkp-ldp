@@ -1,0 +1,20 @@
+[package]
+name = "rust_wasm_prover_poc"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "1.0"
+serde_json = "1.0"
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+getrandom = { version = "0.2", features = ["js"] }
+ark-circom-witnesscalc = { path = "/tmp/rust-zk-tools/ark-circom-witnesscalc", default-features = false }
+
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1

@@ -1,5 +1,4 @@
 import Head from 'next/head';
-import Script from 'next/script';
 import { encode } from 'ngeohash';
 import { useEffect, useState } from 'react';
 import { collectFingerprint } from '../lib/fingerprint_collector';
@@ -13,7 +12,10 @@ import {
   hashTo250BitStrings,
   ipToIntString
 } from '../lib/utils';
-import { UnsignedInput, proveStateUpdateViaApi, sign_circom_inputs, verifyStateUpdate } from '../lib/zk_utils';
+import {
+  UnsignedInput,
+  proveStateUpdateInBrowserRustWasm
+} from '../lib/zk_utils';
 
 // Add types for stored state
 interface StoredState {
@@ -24,7 +26,7 @@ interface StoredState {
 }
 
 export default function Home() {
-  const enableBrowserProveFallback = process.env.NEXT_PUBLIC_ENABLE_BROWSER_PROVE_FALLBACK === 'true';
+  const DEMO_CIRCUIT_ID = 'gh_20_fp_400';
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [fingerprintHashes, setFingerprintHashes] = useState<string[]>([]);
@@ -52,9 +54,6 @@ export default function Home() {
     // Client-side configuration
     fingerprintSimilarity: 90, // percentage
     geohashDistance: 0.1, // degrees
-    // Server-side configuration
-    serverGeohashBits: 20,
-    serverFingerprintThreshold: 400
   });
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [signatures, setSignatures] = useState<{
@@ -65,20 +64,11 @@ export default function Home() {
   const [verifyingTime, setVerifyingTime] = useState<number | null>(null);
   const [isParametersExpanded, setIsParametersExpanded] = useState<boolean>(false);
   const [isVerificationInputsExpanded, setIsVerificationInputsExpanded] = useState<boolean>(false);
+  const [warmupStatus, setWarmupStatus] = useState<'idle' | 'warming' | 'ready' | 'error'>('idle');
+  const [warmupLatencyMs, setWarmupLatencyMs] = useState<number | null>(null);
+  const [hasWarmupBeenClicked, setHasWarmupBeenClicked] = useState<boolean>(false);
 
   const N = 5;
-
-  const geohashConfigs = [
-    { bits: 15, label: "3 characters (15 bits, ~156km x ~156km bounding box)" },
-    { bits: 20, label: "4 characters (20 bits, ~39km x ~19.5km bounding box)" },
-    { bits: 25, label: "5 characters (25 bits, ~5km x ~5km bounding box)" }
-  ];
-
-  const fingerprintConfigs = [
-    { threshold: 350, label: "Loose (70% similarity)" },
-    { threshold: 400, label: "Medium (80% similarity)" },
-    { threshold: 450, label: "Strict (90% similarity)" }
-  ];
 
   // Load state from localStorage on component mount and generate initial state
   useEffect(() => {
@@ -181,6 +171,43 @@ export default function Home() {
     });
   };
 
+  const buildUnsignedInput = (): UnsignedInput | null => {
+    if (!currentState.fingerprint || !currentState.location || !currentState.ip) {
+      return null;
+    }
+
+    const cleanGeohashes = geohashes.length > 0 ? geohashes.map(hash => {
+      const match = hash.match(/\((.*?)\)/);
+      return match ? match[1] : hash;
+    }) : ["0", "0", "0", "0", "0"];
+    const cleanNewGeohash = currentState.location.geohash;
+
+    return {
+      ips: ipAddresses.length > 0 ? ipAddresses.map(ipToIntString) : ["0", "0", "0", "0", "0"],
+      geohashes: cleanGeohashes.map(geohashToIntString),
+      last_fingerprint: currentState.fingerprint,
+      yob: ["48", "48"],
+      users_prf_seed: "1111111111",
+      state_counter: "0",
+      initial_comm_rand: "111111111",
+      new_ip: ipToIntString(currentState.ip),
+      new_geohash: geohashToIntString(cleanNewGeohash),
+      new_rappor_nonce: "111111111",
+      new_fingerprint_nonce: "111111111",
+      state_comm_randomness: "111111111",
+      new_fingerprint: fingerprintHashes[0] ? fingerprintHashes[0].split(',') : ["0", "0"],
+      initial_state_r8x: "",
+      initial_state_r8y: "",
+      initial_state_s: "",
+      new_user_info_r8x: "",
+      new_user_info_r8y: "",
+      new_user_info_s: ""
+    };
+  };
+
+  const runProver = async (input: UnsignedInput, browserCircuitPath: string) =>
+    proveStateUpdateInBrowserRustWasm(input, browserCircuitPath);
+
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
@@ -222,8 +249,6 @@ export default function Home() {
 
     setVerificationStatus('Verifying...');
     try {
-      const startTime = performance.now();
-
       // Store original state before verification
       setOriginalState({
         ips: [...ipAddresses],
@@ -232,77 +257,36 @@ export default function Home() {
       });
 
       // Select circuit artifacts based on server configuration
-      const circuitId = `gh_${options.serverGeohashBits}_fp_${options.serverFingerprintThreshold}`;
+      const circuitId = DEMO_CIRCUIT_ID;
       const browserCircuitPath = `/${circuitId}`;
+      const input = buildUnsignedInput();
+      if (!input) {
+        setVerificationStatus('Missing required data for verification');
+        return;
+      }
 
-      // Extract just the geohash part from the formatted strings
-      const cleanGeohashes = geohashes.length > 0 ? geohashes.map(hash => {
-        const match = hash.match(/\((.*?)\)/);
-        return match ? match[1] : hash;
-      }) : ["0", "0", "0", "0", "0"];
-      const cleanNewGeohash = currentState.location.geohash;
-
-      // Log detailed prefix information
-      const input: UnsignedInput = {
-        ips: ipAddresses.length > 0 ? ipAddresses.map(ipToIntString) : ["0", "0", "0", "0", "0"],
-        geohashes: cleanGeohashes.map(geohashToIntString),
-        last_fingerprint: currentState.fingerprint,
-        users_prf_seed: "1111111111",
-        state_counter: "0",
-        initial_comm_rand: "111111111",
-        new_ip: ipToIntString(currentState.ip),
-        new_geohash: geohashToIntString(cleanNewGeohash),
-        new_rappor_nonce: "111111111",
-        state_comm_randomness: "111111111",
-        new_fingerprint: fingerprintHashes[0] ? fingerprintHashes[0].split(',') : ["0", "0"],
-        initial_state_r8x: "",
-        initial_state_r8y: "",
-        initial_state_s: "",
-        new_user_info_r8x: "",
-        new_user_info_r8y: "",
-        new_user_info_s: ""
-      };
-
-      // Sign the input data first to get the signatures
-      const signedInput = await sign_circom_inputs(input);
-
-      // Update signatures regardless of verification result
+      const proveResult = await runProver(input, browserCircuitPath);
+      const isValid = proveResult.isValid;
+      setProvingTime(proveResult.timing.signMs + proveResult.timing.proveMs);
+      setVerifyingTime(proveResult.timing.verifyMs);
       setSignatures({
         initial_state: {
-          r8x: signedInput.initial_state_r8x || "Not available",
-          r8y: signedInput.initial_state_r8y || "Not available",
-          s: signedInput.initial_state_s || "Not available"
+          r8x: proveResult.signatures.initial_state.r8x || "Not available",
+          r8y: proveResult.signatures.initial_state.r8y || "Not available",
+          s: proveResult.signatures.initial_state.s || "Not available"
         },
         new_user_info: {
-          r8x: signedInput.new_user_info_r8x || "Not available",
-          r8y: signedInput.new_user_info_r8y || "Not available",
-          s: signedInput.new_user_info_s || "Not available"
+          r8x: proveResult.signatures.new_user_info.r8x || "Not available",
+          r8y: proveResult.signatures.new_user_info.r8y || "Not available",
+          s: proveResult.signatures.new_user_info.s || "Not available"
         }
       });
 
-      const localSignEndTime = performance.now();
-      const localSignTimeMs = localSignEndTime - startTime;
-
-      let isValid = false;
-      try {
-        const proveResult = await proveStateUpdateViaApi(input, circuitId);
-        isValid = proveResult.isValid;
-        setProvingTime(proveResult.timing.signMs + proveResult.timing.proveMs);
-        setVerifyingTime(proveResult.timing.verifyMs);
-      } catch (apiError) {
-        if (!enableBrowserProveFallback) {
-          throw apiError;
-        }
-
-        // Optional local fallback while developing/debugging API deployments.
-        const browserVerifyStart = performance.now();
-        isValid = await verifyStateUpdate(signedInput, browserCircuitPath);
-        const browserVerifyEnd = performance.now();
-        setProvingTime(localSignTimeMs);
-        setVerifyingTime(browserVerifyEnd - browserVerifyStart);
-      }
-
-      setVerificationStatus(isValid ? 'Verification successful!' : 'Verification failed');
+      setVerificationStatus(
+        isValid
+          ? `Verification successful (${proveResult.proverEngine})!`
+          : `Verification failed (${proveResult.proverEngine})`
+      );
 
       // If verification is successful, update the stored state
       if (isValid) {
@@ -318,17 +302,65 @@ export default function Home() {
     }
   };
 
+  const handleWarmupProver = async () => {
+    if (hasWarmupBeenClicked || warmupStatus === 'warming') return;
+    setHasWarmupBeenClicked(true);
+    setWarmupStatus('warming');
+    setWarmupLatencyMs(null);
+
+    const warmupInput: UnsignedInput = {
+      ips: ["3232235526", "0", "0", "0", "0"],
+      geohashes: ["458443319826090800", "0", "0", "0", "0"],
+      last_fingerprint: [
+        "996452246304932491187838448288367965371837357284206925883546866701294631124",
+        "15569566348514570174809975754505749458934958707565733216930419792207728611"
+      ],
+      yob: ["48", "48"],
+      users_prf_seed: "1111111111",
+      state_counter: "0",
+      initial_comm_rand: "1111111111111",
+      new_ip: "3232235521",
+      new_geohash: "458442982927086700",
+      new_rappor_nonce: "111111111",
+      new_fingerprint_nonce: "111111111",
+      state_comm_randomness: "111111111",
+      // Keep fingerprints identical to guarantee threshold pass for warmup.
+      new_fingerprint: [
+        "996452246304932491187838448288367965371837357284206925883546866701294631124",
+        "15569566348514570174809975754505749458934958707565733216930419792207728611"
+      ],
+      initial_state_r8x: "",
+      initial_state_r8y: "",
+      initial_state_s: "",
+      new_user_info_r8x: "",
+      new_user_info_r8y: "",
+      new_user_info_s: ""
+    };
+
+    try {
+      const start = performance.now();
+      const result = await runProver(warmupInput, `/${DEMO_CIRCUIT_ID}`);
+      const end = performance.now();
+      if (!result.isValid) {
+        throw new Error('Warmup proof returned invalid result');
+      }
+      setWarmupLatencyMs(end - start);
+      setWarmupStatus('ready');
+    } catch (err) {
+      console.error('Warmup error:', err);
+      setWarmupStatus('error');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <Head>
         <title>Zero-Knowledge Credential Generator</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <Script src="https://cdn.jsdelivr.net/npm/snarkjs@0.7.5/build/snarkjs.min.js" strategy="beforeInteractive" />
 
       <div className="container py-5">
         <h1 className="text-3xl font-bold mb-4">Zero-Knowledge Credential Generator</h1>
-
         <div className="mb-4">
           <h2 className="text-xl font-semibold mb-2">Your current state</h2>
           <div className="list-group mb-4">
@@ -365,10 +397,19 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex flex-row items-center space-x-12 mb-4">
+        <div className="flex flex-row flex-wrap items-center gap-3 mb-3">
+          <button
+            onClick={handleWarmupProver}
+            className={`btn btn-secondary ${hasWarmupBeenClicked ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={hasWarmupBeenClicked || warmupStatus === 'warming'}
+          >
+            {warmupStatus === 'warming' ? 'Warming prover...' : 'Warm up prover'}
+          </button>
+
           <button
             onClick={handleVerify}
-            className="btn btn-primary"
+            className={`btn ${warmupStatus === 'ready' ? 'btn-primary' : 'btn-secondary opacity-50 cursor-not-allowed'}`}
+            disabled={warmupStatus !== 'ready'}
           >
             Verify and add current state to history
           </button>
@@ -380,6 +421,36 @@ export default function Home() {
             Clear History
           </button>
         </div>
+
+        {warmupStatus === 'ready' && (
+          <p className="text-sm text-green-300 mb-2">
+            browser proving runtime warmed ({warmupLatencyMs?.toFixed(0)}ms)
+          </p>
+        )}
+        {warmupStatus === 'error' && (
+          <p className="text-sm text-red-300 mb-2">
+            warmup failed, please retry
+          </p>
+        )}
+
+        {(provingTime !== null || verifyingTime !== null || verificationStatus) && (
+          <div className="bg-gray-800 p-3 rounded mb-3">
+            <h4 className="text-md font-semibold mb-1">Latest proof timings</h4>
+            {verificationStatus && (
+              <p className={`text-sm mb-1 ${verificationStatus.includes('successful') ? 'text-green-300' : 'text-red-300'}`}>
+                {verificationStatus}
+              </p>
+            )}
+            <p className="text-sm text-gray-200">
+              Proving: <strong>{provingTime?.toFixed(2)}ms</strong>{' '}
+              | Verifying: <strong>{verifyingTime?.toFixed(2)}ms</strong>
+            </p>
+          </div>
+        )}
+
+        <p className="text-sm text-yellow-300 mb-4">
+          First verification can be slower because browser proving must initialize cryptographic WASM modules and circuit artifacts. Subsequent verifications are typically much faster.
+        </p>
 
         {error && (
           <div className="alert alert-danger mb-4">
@@ -505,54 +576,7 @@ export default function Home() {
             )}
           </div>
 
-          {verificationStatus && (
-            <div className="row">
-              <div className="col-12">
-                <div className={`alert ${verificationStatus.includes('successful') ? 'alert-success' : 'alert-danger'} mb-6 rounded px-4 py-3`}>
-                  {verificationStatus}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-
-        {verificationStatus && verificationStatus.includes('successful') && (
-          <div className="bg-gray-800 p-4 rounded mb-6">
-            <h4 className="text-lg font-semibold mb-2">What you have attested to:</h4>
-            <ul className="list-disc pl-4 space-y-2">
-              <li>The client's current location is within the specified geohash precision:
-                <ul className="list-disc pl-4 mt-1">
-                  <li>Using {options.serverGeohashBits} bits of precision</li>
-                  <li>Bounding box size: {
-                    options.serverGeohashBits === 15 ? "~156km x ~156km" :
-                      options.serverGeohashBits === 20 ? "~39km x ~19.5km" :
-                        "~5km x ~5km"
-                  }</li>
-                </ul>
-              </li>
-              <li>The client's current browser fingerprint is sufficiently similar to their previous state:
-                <ul className="list-disc pl-4 mt-1">
-                  <li>Required similarity: {
-                    options.serverFingerprintThreshold === 350 ? "70%" :
-                      options.serverFingerprintThreshold === 400 ? "80%" :
-                        "90%"
-                  }</li>
-                  <li>Generated similarity: {options.fingerprintSimilarity}%</li>
-                </ul>
-              </li>
-              <li>The client's IP address history is consistent with their current location</li>
-              <li>All cryptographic signatures are valid</li>
-            </ul>
-
-            <div className="mt-4">
-              <h5 className="text-md font-semibold mb-2">Performance metrics:</h5>
-              <ul className="list-disc pl-4 space-y-2">
-                <li>Proving time: {provingTime?.toFixed(2)}ms</li>
-                <li>Verifying time: {verifyingTime?.toFixed(2)}ms</li>
-              </ul>
-            </div>
-          </div>
-        )}
 
         {verificationStatus && (
           <div className="mb-6">
@@ -589,9 +613,11 @@ export default function Home() {
                         ips: originalState.ips.map(ipToIntString),
                         geohashes: originalState.geohashes.map(geohashToIntString),
                         last_fingerprint: originalState.fingerprint,
+                        yob: ["48", "48"],
                         users_prf_seed: "1111111111",
                         state_counter: "0",
                         initial_comm_rand: "111111111",
+                        new_fingerprint_nonce: "111111111",
                         state_comm_randomness: "111111111"
                       }, null, 2)}
                     </pre>
@@ -628,56 +654,14 @@ export default function Home() {
         )}
 
         <div className="mb-4">
-          <h2 className="text-xl font-semibold mb-2">Server-side verification parameters</h2>
+          <h2 className="text-xl font-semibold mb-2">Verification parameters (fixed for demo)</h2>
           <div className="bg-gray-800 p-4 rounded mb-4">
-            <p className="mb-2">These parameters determine how strict the verification process is. In this demo, you can set these parameters yourself as if you were the server. However, calculating these thresholds based on exact statistics may not be privacy preserving. Our work validates a system for using <strong><a href='https://en.wikipedia.org/wiki/Local_differential_privacy' target='_blank' rel='noopener noreferrer' className="orange-link">local differential privacy</a></strong> (specifically <a href='https://github.com/google/rappor' target='_blank' rel='noopener noreferrer' className="orange-link">RAPPOR</a>) to calculate these thresholds.</p>
+            <p className="mb-2">These parameters determine how strict the verification process is. For this demo deployment we use one fixed configuration with the Rust+WASM browser prover. Calculating these thresholds based on exact statistics may not be privacy preserving; our work validates using <strong><a href='https://en.wikipedia.org/wiki/Local_differential_privacy' target='_blank' rel='noopener noreferrer' className="orange-link">local differential privacy</a></strong> (specifically <a href='https://github.com/google/rappor' target='_blank' rel='noopener noreferrer' className="orange-link">RAPPOR</a>) to calibrate thresholds.</p>
             <ul className="list-disc pl-4 space-y-2">
-              <li><strong>Geohash precision:</strong> Controls how precise the location verification is:
-                <ul className="list-disc pl-4 mt-1">
-                  <li>3 characters (15 bits): ~156km x ~156km bounding box</li>
-                  <li>4 characters (20 bits): ~39km x ~19.5km bounding box</li>
-                  <li>5 characters (25 bits): ~5km x ~5km bounding box</li>
-                </ul>
-              </li>
-              <li><strong>Fingerprint similarity:</strong> Controls how similar fingerprints must be to pass verification:
-                <ul className="list-disc pl-4 mt-1">
-                  <li>Loose: 70% similarity required</li>
-                  <li>Medium: 80% similarity required</li>
-                  <li>Strict: 90% similarity required</li>
-                </ul>
-              </li>
+              <li><strong>Geohash precision:</strong> 20 bits (~39km x ~19.5km bounding box)</li>
+              <li><strong>Fingerprint similarity threshold:</strong> 80% (medium)</li>
+              <li><strong>Circuit profile:</strong> <code>{DEMO_CIRCUIT_ID}</code></li>
             </ul>
-
-            <div className="row mt-4">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Geohash precision</label>
-                <select
-                  className="form-select bg-gray-800 text-white border-2 border-gray-700 hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 rounded-lg p-2 cursor-pointer transition-colors duration-200"
-                  value={options.serverGeohashBits}
-                  onChange={(e) => setOptions({ ...options, serverGeohashBits: parseInt(e.target.value) })}
-                >
-                  {geohashConfigs.map(config => (
-                    <option key={config.bits} value={config.bits}>
-                      {config.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Fingerprint similarity</label>
-                <select
-                  className="form-select bg-gray-800 text-white border-2 border-gray-700 hover:border-blue-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 rounded-lg p-2 cursor-pointer transition-colors duration-200"
-                  value={options.serverFingerprintThreshold}
-                  onChange={(e) => setOptions({ ...options, serverFingerprintThreshold: parseInt(e.target.value) })}
-                >
-                  {fingerprintConfigs.map(config => (
-                    <option key={config.threshold} value={config.threshold}>
-                      {config.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -698,6 +682,7 @@ export default function Home() {
               <li>The new geohash shares enough prefix bits with at least one of the old geohashes (based on the selected precision)</li>
               <li>The current fingerprint is sufficiently similar to the initial fingerprint (based on the selected threshold)</li>
             </ol>
+            <p className="mb-0 mt-3 text-yellow-300">Current demo prover runtime uses Rust+WASM in the browser.</p>
           </div>
         </div>
       </div>

@@ -20,27 +20,17 @@ This top-level README is intentionally brief and points to the right subproject 
 ## Frontend demo
 
 - Demo app code is in `frontend/`.
-- The frontend now uses hosted proving via `frontend/pages/api/prove.ts` by default.
-- Circuit artifacts (for geohash/fingerprint threshold variants) are served from `frontend/public/gh_*`.
-- Prover/verifier implementation notes and demo plan are in `prove_verify/`.
+- The demo uses Rust+WASM proving directly in the browser.
+- Circuit artifacts for the active demo circuit are served from `frontend/public/gh_20_fp_400/rust/`.
+- Rust prover source lives in `frontend/rust_wasm_prover_poc/`.
+- Toolchain notes are in `prove_verify/README.md`.
 
 ## Deploying demo on Vercel
 
 1. Set the project root to `frontend/`.
 2. Deploy with default build/start commands (`next build`, `next start`).
-3. Add environment variables:
-   - `PROVER_MODE=local-snarkjs` (default hosted proving inside the Next.js API route)
-   - Optional: `NEXT_PUBLIC_ENABLE_BROWSER_PROVE_FALLBACK=false`
+3. No prover backend environment variables are required for the current browser proving flow.
 4. Redeploy.
-
-### Optional external optimized prover
-
-If you have a native prover service (for example Rapidsnark-based), switch to:
-
-- `PROVER_MODE=remote-prover`
-- `EXTERNAL_PROVER_URL=https://<your-prover-endpoint>`
-
-The app still calls `/api/prove`; the API route forwards requests to the external prover when this mode is enabled.
 
 ## Additional directories
 
