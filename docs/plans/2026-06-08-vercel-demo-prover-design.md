@@ -1,5 +1,7 @@
 # Vercel Demo Prover Design
 
+> Historical note: this plan described an earlier `/api/prove` architecture. The current deployed demo uses browser-only Rust+WASM proving and does not use `frontend/pages/api/prove.ts`.
+
 **Goal:** Deploy a real web demo on Vercel where proof generation runs server-side in the app backend, with a clean switch to an external native prover later.
 
 ## Design

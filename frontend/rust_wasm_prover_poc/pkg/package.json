@@ -1,0 +1,15 @@
+{
+  "name": "rust_wasm_prover_poc",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "rust_wasm_prover_poc_bg.wasm",
+    "rust_wasm_prover_poc.js",
+    "rust_wasm_prover_poc.d.ts"
+  ],
+  "main": "rust_wasm_prover_poc.js",
+  "types": "rust_wasm_prover_poc.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

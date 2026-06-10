@@ -7,3 +7,5 @@ frontend/.next
 frontend/.next/**
 frontend/.vercel
 frontend/.vercel/**
+frontend/rust_wasm_prover_poc/target
+frontend/rust_wasm_prover_poc/target/**
